@@ -1124,3 +1124,162 @@ input[type='range'] {
     transition: border-color 0.12s, background-color 0.12s, box-shadow 0.12s;
   }
 }
+
+/* ---------- Моя семья ---------- */
+
+.mf {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  height: 100%;
+}
+
+.mf-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  padding: 8px 12px;
+  border-bottom: 1px solid var(--line);
+  background: var(--panel);
+}
+
+.mf-bar .btn {
+  padding: 6px 10px;
+}
+
+.mf-new {
+  margin-left: auto;
+}
+
+.mf-stage {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 0;
+  min-height: 0;
+  padding: 12px;
+  container-type: size;
+}
+
+.mf-sheet {
+  height: auto;
+  background: #fff;
+  box-shadow: 0 6px 24px rgba(31, 42, 68, 0.22);
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+.mf-sheet [data-fig] {
+  cursor: grab;
+}
+
+.mf-sheet [stroke-dasharray] {
+  pointer-events: none;
+}
+
+.mf-hint {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  max-width: min(80%, 420px);
+  margin: 0;
+  padding: 10px 16px;
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.92);
+  color: var(--muted);
+  font-size: 17px;
+  text-align: center;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+}
+
+.mf-panel {
+  padding: 10px 12px 14px;
+  border-top: 1px solid var(--line);
+  background: var(--panel);
+}
+
+.mf-panel-title {
+  margin-bottom: 8px;
+  font-size: 18px;
+}
+
+.mf-shapes {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.mf-shape {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: 64px;
+  padding: 6px 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.mf-shape:hover {
+  border-color: var(--navy);
+  background: #f6f1e0;
+}
+
+.mf-shape svg {
+  width: 32px;
+  height: 32px;
+}
+
+/* Narrow screens: two columns with the icon beside the label, so long names fit. */
+@media (max-width: 520px) {
+  .mf-shapes {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .mf-shape {
+    flex-direction: row;
+    gap: 8px;
+    min-height: 52px;
+    font-size: 14px;
+  }
+}
+
+.mf-step {
+  margin-top: 10px;
+}
+
+.mf-step .btn {
+  white-space: normal;
+  text-align: center;
+}
+
+@media (min-width: 901px) {
+  .mf {
+    grid-template-columns: minmax(0, 1fr) 280px;
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .mf-bar {
+    grid-column: 1 / -1;
+  }
+
+  .mf-panel {
+    grid-column: 2;
+    grid-row: 2;
+    overflow-y: auto;
+    border-top: 0;
+    border-left: 1px solid var(--line);
+  }
+
+  .mf-shapes {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}

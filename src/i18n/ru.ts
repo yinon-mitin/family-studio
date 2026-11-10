@@ -17,6 +17,17 @@ export const ru = {
   'tool.crest': 'Герб семьи',
   'tool.my-family': 'Моя семья',
   'mf.file': 'moya-semya',
+  'mf.sheet': 'Лист А4',
+  'mf.hint': 'Выберите фигуру, чтобы положить её на лист',
+  'mf.add': 'Добавить фигуру',
+  'mf.shape.circle': 'Круг',
+  'mf.shape.square': 'Квадрат',
+  'mf.shape.rect': 'Прямоугольник',
+  'mf.shape.triangle': 'Треугольник',
+  'mf.prev': 'Предыдущая фигура',
+  'mf.next': 'Следующая фигура',
+  'mf.new': 'Новый рисунок',
+  'mf.newAsk': 'Начать новый рисунок? Текущий будет заменён.',
   'lang.label': 'Язык',
 
   // стартовый экран

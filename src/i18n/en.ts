@@ -16,6 +16,17 @@ export const en: Record<Key, string> = {
   'tool.crest': 'Family crest',
   'tool.my-family': 'My Family',
   'mf.file': 'my-family',
+  'mf.sheet': 'A4 sheet',
+  'mf.hint': 'Pick a shape to put it on the sheet',
+  'mf.add': 'Add a shape',
+  'mf.shape.circle': 'Circle',
+  'mf.shape.square': 'Square',
+  'mf.shape.rect': 'Rectangle',
+  'mf.shape.triangle': 'Triangle',
+  'mf.prev': 'Previous shape',
+  'mf.next': 'Next shape',
+  'mf.new': 'New drawing',
+  'mf.newAsk': 'Start a new drawing? The current one will be replaced.',
   'lang.label': 'Language',
 
   // start screen
