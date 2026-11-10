@@ -300,7 +300,7 @@ input[type='range'] {
 .editor {
   display: grid;
   grid-template-rows: auto minmax(0, 1fr) auto;
-  height: 100dvh;
+  height: 100%;
 }
 
 .topbar {
@@ -377,9 +377,64 @@ input[type='range'] {
   color: var(--navy);
 }
 
-.start-top {
+/* ---------- оболочка ---------- */
+
+.shell {
   display: flex;
-  justify-content: flex-end;
+  flex-direction: column;
+  height: 100dvh;
+}
+
+.shell-bar {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex: none;
+  min-height: 36px;
+  padding: 0 12px;
+  background: var(--navy);
+  color: #fff;
+}
+
+.shell-brand {
+  font: 600 16px/1 var(--serif);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+
+.shell-tabs {
+  display: flex;
+  gap: 2px;
+  flex: 1;
+  min-width: 0;
+}
+
+.shell-tabs button {
+  min-height: 36px;
+  padding: 0 12px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: inherit;
+  font: 600 13px system-ui, sans-serif;
+}
+
+.shell-tabs button.on {
+  border-bottom-color: var(--gold);
+}
+
+.shell-bar .lang-switch {
+  margin-left: auto;
+}
+
+.shell-bar .lang-switch button {
+  min-height: 28px;
+}
+
+.shell-body {
+  flex: 1;
+  min-height: 0;
+  overflow: auto;
 }
 
 .menu {

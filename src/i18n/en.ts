@@ -7,6 +7,9 @@ export const en: Record<Key, string> = {
     'A family crest builder for group psychology practice: put together a crest from professions, animals, nature and symbols, then download it as PNG, PDF or SVG.',
   'app.loading': 'Loading…',
   'app.loadFailed': 'Could not load the site resources. Check your connection and reload the page.',
+  'shell.title': 'Family Studio',
+  'shell.tools': 'Tools',
+  'tool.crest': 'Family crest',
   'lang.label': 'Language',
 
   // start screen

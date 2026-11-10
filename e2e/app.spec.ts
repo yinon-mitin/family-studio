@@ -211,7 +211,7 @@ test('английский интерфейс: переключение, зап�
 
   await expect(page.getByRole('heading', { name: 'Family crest' })).toBeVisible();
   await expect(page.locator('html')).toHaveAttribute('lang', 'en');
-  await expect(page).toHaveTitle('Family crest');
+  await expect(page).toHaveTitle('Family crest — Family Studio');
   for (const name of ['Classic shield', 'Four pillars', 'Two family lines', 'Medallion', 'Family tree', 'Sky and sea', 'Three generations', 'Our path']) {
     await expect(page.getByRole('button', { name: new RegExp(name) })).toBeVisible();
   }

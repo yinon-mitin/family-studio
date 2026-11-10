@@ -1,6 +1,5 @@
 import { goStart, redo, setDoc, setState, undo, useStore } from '../model/store.ts';
 import { t } from '../i18n/index.ts';
-import { LangSwitch } from './LangSwitch.tsx';
 import { pickFile, saveFile, wipe } from './files.ts';
 
 export function Header() {
@@ -16,7 +15,6 @@ export function Header() {
         <span class="sr">{t('header.familyLabel')}</span>
         <input type="text" maxLength={60} placeholder={t('header.familyPlaceholder')} value={family} onInput={(e) => setDoc({ family: (e.target as HTMLInputElement).value }, 'family')} />
       </label>
-      <LangSwitch />
       <details class="menu">
         <summary class="btn">{t('header.file')}</summary>
         <div class="menu-list" onClick={close}>

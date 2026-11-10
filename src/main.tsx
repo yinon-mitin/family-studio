@@ -5,7 +5,7 @@ import './ui/styles.css';
 import { loadSymbols } from './data/symbols.ts';
 import { applyDocumentLang, t } from './i18n/index.ts';
 import { loadFontsBrowser } from './render/fonts.ts';
-import { App } from './ui/App.tsx';
+import { Shell } from './shell/Shell.tsx';
 
 async function main() {
   const root = document.getElementById('app')!;
@@ -19,7 +19,7 @@ async function main() {
     return;
   }
   root.textContent = '';
-  render(<App />, root);
+  render(<Shell />, root);
 }
 
 void main();

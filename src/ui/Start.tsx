@@ -6,7 +6,6 @@ import { TEMPLATES } from '../model/templates.ts';
 import { pick, t } from '../i18n/index.ts';
 import { renderCrest } from '../render/renderCrest.ts';
 import { About } from './About.tsx';
-import { LangSwitch } from './LangSwitch.tsx';
 import { pickFile, wipe } from './files.ts';
 import { useStore } from '../model/store.ts';
 
@@ -21,9 +20,6 @@ export function Start() {
 
   return (
     <div class="start">
-      <div class="start-top">
-        <LangSwitch class="light" />
-      </div>
       <header class="hero">
         <svg class="logo" viewBox="0 0 64 64" aria-hidden="true"><path d="M10 8h44v26c0 12-10 19-22 24C20 53 10 46 10 34z" fill="currentColor" /><path d="M32 14v38M14 28h36" stroke="#e0b44c" stroke-width="4" /></svg>
         <h1>{t('app.title')}</h1>
