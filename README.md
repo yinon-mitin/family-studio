@@ -1,8 +1,38 @@
 # Family Studio
 
-Tools for family work in psychology practice, in one site: a **family crest** builder (ready), a **genogram** drawing tool and the projective **"My Family"** drawing (both planned). The repository was created by merging two earlier projects, `family-crest` and `family-map`, with their full git history.
+Tools for family work in psychology practice, in one site: the projective **"My Family"** drawing (ready, the tool that opens by default), a **family crest** builder (ready) and a **genogram** drawing tool (planned). The repository was created by merging two earlier projects, `family-crest` and `family-map`, with their full git history.
 
-> **Status.** The site now has a shell (top bar, tool registry, shared language switch, "erase all my data") and the crest builder runs inside it as its first tool. "My Family" and the genogram are not wired in yet. The original `family-map` editor lives unchanged in [`legacy/family-map`](legacy/family-map) until its parts are ported to the new shared application.
+> **Status.** The site has a shell (top bar, tabs, tool registry, shared language switch, "erase all my data") with two tools: **My Family** (opens by default) and the **family crest** (`?tool=crest`). The genogram is not wired in yet. The original `family-map` editor lives unchanged in [`legacy/family-map`](legacy/family-map) until its parts are ported to the new shared application.
+
+## My Family
+
+A sheet of A4 where a client lays out coloured shapes to show their family, then downloads the result. The interface is made for working on one's own, with plain buttons and no jargon.
+
+**Open it directly:** `?only=my-family` shows just this tool, with no tabs (`?tool=my-family` opens it with the tabs). It is also what the site opens by default.
+
+- **Sheet.** A4 that fits the screen: landscape on a wide screen, portrait on a phone. It is drawn as SVG with a fixed coordinate space (1000 x 1414 units), so turning the device does not recreate it and an existing drawing keeps its orientation.
+- **Shapes.** Circle, square, rectangle and triangle, up to 200 per drawing. Add them with buttons, drag them with a finger or mouse (they cannot leave the sheet), or move them with the arrow keys (Shift for bigger steps).
+- **Properties** of the selected shape: 13 colours, size (30 to 260 units), rotation in steps of 15 degrees, five textures (stripes, checks, dots, waves, lozenges) or plain, and layer order (up, down, to front, to back). Duplicate and Delete are there too. "Previous / Next shape" reaches a shape that is fully covered by others.
+- **Undo and redo:** `Ctrl+Z`, `Ctrl+Y` / `Ctrl+Shift+Z` (also on a Russian keyboard layout) and buttons. Dragging a shape or a slider is one step.
+- **File menu:** New drawing (asks before replacing a drawing that has shapes), Save to a file (`moya-semya.json`) and Open from a file (asks before replacing; a file that is not a My Family project, is damaged or is over 5 MB is refused and nothing changes).
+- **Download:** PNG (1240 x 1753 px, A4 at 150 dpi), SVG or PDF (A4 in the sheet's orientation). The picture matches the screen: one function, `renderSheet`, draws the sheet for the screen and for every export.
+- **Privacy.** Everything stays in the browser. The drawing is autosaved to this device's local storage (key `family-studio:my-family:autosave:v1`) a moment after each change and when the page is hidden or closed. Nothing is sent anywhere: no server, no analytics, no external requests. To erase it, use **Data → Erase all my data** in the top bar (this also erases the crest), or start a new drawing: a new or empty drawing is never stored. If the browser blocks local storage, the tool still works, it just cannot remember the drawing.
+
+```
+src/core/                     document history store (undo/redo), its Preact hook, the shared file size limit
+src/tools/my-family/model.ts       the document and the actions on it (add, update, reorder, duplicate, delete)
+src/tools/my-family/sheet.ts       sheet sizes and orientation
+src/tools/my-family/persist.ts     validated save/open format and autosave
+src/tools/my-family/files.ts       reading a project file
+src/tools/my-family/render.ts      the sheet as an SVG string (screen and exports)
+src/tools/my-family/exports.ts     PNG, SVG and PDF files
+src/tools/my-family/exportFlow.ts  the download step: reads the current drawing, drops the result if the dialog was closed
+src/tools/my-family/store.ts       the store: document with history, selection, toast, autosave
+src/tools/my-family/Sheet.tsx      the sheet with draggable shapes
+src/tools/my-family/Panel.tsx      shape properties
+src/tools/my-family/FileMenu.tsx   File menu and the download dialog
+src/tools/my-family/MyFamily.tsx   the tool: layout, buttons and keyboard shortcuts (shortcuts.ts)
+```
 
 ## Family crest
 
@@ -16,9 +46,9 @@ The interface is available in **Russian** (default) and **English**. Switch with
 
 The site is a thin shell around the tools: a slim top bar with the site name, tool tabs, a **Data** menu and the RU / EN switch, with the active tool below it. The language switch lives in the bar and is shared by all tools; the browser tab title follows the language and the tool ("Family crest — Family Studio").
 
-- **Tool tabs** are shown only when more than one tool is registered. Today there is a single tool (the crest), so the bar has no tabs.
-- **Links.** `?tool=<id>` opens a given tool. Currently only `crest` is registered; `genogram` and `my-family` are reserved ids that will work once those tools are wired (until then they fall back to the crest). Switching tabs updates `?tool=` in the address without adding a history entry. `?only=<id>` shows just that tool with no tabs and wins over `?tool=`. A missing or unknown value never breaks the page: the first registered tool is shown. Other parameters such as `?lang=en` are kept, so `?only=crest&lang=en` works.
-- **Data → Erase all my data** asks for confirmation, then erases everything every registered tool keeps on the device. If one tool fails to erase (for example the browser blocks its storage), the others are still erased and a warning is shown. Declining the confirmation erases nothing.
+- **Tool tabs** ("My Family", "Family crest") are shown when more than one tool is registered; `?only=` hides them. The first tab is the default tool.
+- **Links.** `?tool=<id>` opens a given tool: `my-family` (the default) or `crest`. `genogram` is a reserved id that will work once that tool is wired (until then it falls back to the first tool). Switching tabs updates `?tool=` in the address without adding a history entry. `?only=<id>` shows just that tool with no tabs and wins over `?tool=`. A missing or unknown value never breaks the page: the first registered tool is shown. Other parameters such as `?lang=en` are kept, so `?only=my-family&lang=en` works.
+- **Data → Erase all my data** asks for confirmation, then erases everything every registered tool keeps on the device. If one tool fails to erase (for example the browser blocks its storage), the others are still erased and a warning is shown. Both My Family and the crest are erased, and a save that was still waiting is cancelled so nothing is written back. Declining the confirmation erases nothing.
 
 Tools are registered in `src/shell/tools.ts`; a tool is an id, a tab title, a component and a `clearData()` function.
 
@@ -97,7 +127,8 @@ End-to-end tests need the Playwright browser (`npx playwright install chromium`)
 - **Templates:** every template, in both languages, is checked geometrically (`tests/templates.test.ts`): nothing leaves the canvas, symbols stay inside the shield and their own field with a margin and do not touch each other, the shield, ornaments and captions are mirror-symmetric about the vertical axis, captions do not run into the shield, symbols or rings.
 - **Shield fields:** for every shape and division, a symbol fits its field; mirrored fields are mirror images.
 - **Translations:** both dictionaries have the same keys and placeholders, English text has no Cyrillic, and nothing in the catalog is untranslated.
-- **End to end:** both paths from start to export, drag, rotate, scale, restoring after a reload, erasing data, no external requests, and switching the language. The shell has its own tests: address routing and the erase-all helper (Vitest), and the bar, `?only=`, the page title and the erase-all menu with and without confirmation (Playwright).
+- **End to end:** both paths from start to export, drag, rotate, scale, restoring after a reload, erasing data, no external requests, and switching the language. The shell has its own tests: address routing, tool switching and the erase-all helper (Vitest), and the tabs, `?only=`, the page title and the erase-all menu with and without confirmation, for both tools (Playwright).
+- **My Family:** the document model, the validated file and autosave format (damaged and hostile files), the SVG renderer, the exports, the store (autosave timing, a replaced drawing never coming back) and the download step (Vitest); in the browser (Playwright) adding, dragging within the sheet, an interrupted gesture, overlapping, properties, keyboard shortcuts, orientation, phones, save / open, PNG / SVG / PDF files (the PDF is checked with `pdfinfo` and `pdftoppm`), failures, and no external requests.
 
 ## Deployment
 

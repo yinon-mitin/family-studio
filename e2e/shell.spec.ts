@@ -35,15 +35,20 @@ test('полоса не прячет редактор', async ({ page }) => {
 const AUTOSAVE_KEY = 'family-crest:autosave:v1';
 const readAutosave = (page: Page) => page.evaluate((key) => localStorage.getItem(key), AUTOSAVE_KEY);
 
-/** Чистый лист с одним символом; ждёт, пока автосохранение (400 мс) ляжет в localStorage. */
-async function crestWithAutosave(page: Page) {
-  await page.goto('./?tool=crest');
+/** Чистый лист герба с одним символом (вкладка «Герб семьи» уже открыта). */
+async function startCrest(page: Page) {
   await page.getByRole('button', { name: /Чистый лист/ }).click();
   await expect(page.locator('svg.canvas')).toBeVisible();
   if ((page.viewportSize()?.width ?? 1000) <= 900) await page.getByRole('button', { name: 'Добавить', exact: true }).click();
   await page.getByRole('tab', { name: 'Символы' }).click();
   await page.getByLabel('Поиск символов').fill('Дуб');
   await page.getByRole('button', { name: 'Дуб', exact: true }).first().click();
+}
+
+/** Чистый лист с одним символом; ждёт, пока автосохранение (400 мс) ляжет в localStorage. */
+async function crestWithAutosave(page: Page) {
+  await page.goto('./?tool=crest');
+  await startCrest(page);
   await expect.poll(() => readAutosave(page)).not.toBeNull();
 }
 
@@ -66,4 +71,63 @@ test('отказ в подтверждении ничего не стирает'
   await page.waitForTimeout(900);
   expect(await readAutosave(page)).not.toBeNull();
   await expect(page.locator('svg.canvas')).toBeVisible();
+});
+
+// ---------- вкладки и «Моя семья» ----------
+
+const MF_KEY = 'family-studio:my-family:autosave:v1';
+const readKey = (page: Page, key: string) => page.evaluate((k) => localStorage.getItem(k), key);
+const tabs = (page: Page) => page.getByRole('navigation', { name: 'Инструменты' });
+
+test('вкладки: «Моя семья» открыта первой, «Герб семьи» переключает, адрес и заголовок следуют, перезагрузка оставляет герб', async ({ page }) => {
+  await page.goto('./');
+  await expect(tabs(page)).toBeVisible();
+  await expect(tabs(page).getByRole('button')).toHaveCount(2);
+  await expect(tabs(page).getByRole('button').nth(0)).toHaveText('Моя семья');
+  await expect(tabs(page).getByRole('button').nth(1)).toHaveText('Герб семьи');
+  await expect(tabs(page).getByRole('button', { name: 'Моя семья' })).toHaveAttribute('aria-current', 'page');
+  await expect(tabs(page).getByRole('button', { name: 'Герб семьи' })).not.toHaveAttribute('aria-current', 'page');
+  await expect(page.locator('svg.mf-sheet')).toBeVisible();
+
+  await tabs(page).getByRole('button', { name: 'Герб семьи' }).click();
+  await expect(page.getByRole('button', { name: /Чистый лист/ })).toBeVisible();
+  await expect(page).toHaveURL(/tool=crest/);
+  await expect(page).toHaveTitle('Герб семьи — Студия семьи');
+  await expect(tabs(page).getByRole('button', { name: 'Герб семьи' })).toHaveAttribute('aria-current', 'page');
+
+  await page.reload();
+  await expect(page.getByRole('button', { name: /Чистый лист/ })).toBeVisible();
+  await expect(page.locator('svg.mf-sheet')).toHaveCount(0);
+});
+
+test('?only=my-family: вкладок нет, виден только лист', async ({ page }) => {
+  await page.goto('./?only=my-family');
+  await expect(page.locator('svg.mf-sheet')).toBeVisible();
+  await expect(tabs(page)).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /Чистый лист/ })).toHaveCount(0);
+});
+
+test('«Стереть все мои данные» очищает оба инструмента и ничего не пишет обратно', async ({ page }) => {
+  await page.goto('./');
+  await page.getByRole('button', { name: 'Круг', exact: true }).click();
+  await expect.poll(() => readKey(page, MF_KEY)).not.toBeNull();
+  await tabs(page).getByRole('button', { name: 'Герб семьи' }).click();
+  await startCrest(page);
+  await expect.poll(() => readKey(page, AUTOSAVE_KEY)).not.toBeNull();
+  await tabs(page).getByRole('button', { name: 'Моя семья' }).click();
+  await expect(page.locator('svg.mf-sheet [data-fig]')).toHaveCount(1);
+  // one more change and an immediate wipe: the autosave of this change is still pending
+  await page.getByRole('button', { name: 'Квадрат', exact: true }).click();
+  page.once('dialog', (d) => d.accept());
+  await page.getByText('Данные', { exact: true }).click();
+  await page.getByRole('button', { name: 'Стереть все мои данные' }).click();
+  await expect(page.locator('svg.mf-sheet [data-fig]')).toHaveCount(0);
+  await page.waitForTimeout(900); // longer than the 400 ms autosave pause
+  expect(await readKey(page, MF_KEY)).toBeNull();
+  expect(await readKey(page, AUTOSAVE_KEY)).toBeNull();
+  await tabs(page).getByRole('button', { name: 'Герб семьи' }).click();
+  await expect(page.getByRole('button', { name: /Чистый лист/ })).toBeVisible();
+  await page.reload();
+  expect(await readKey(page, MF_KEY)).toBeNull();
+  expect(await readKey(page, AUTOSAVE_KEY)).toBeNull();
 });
