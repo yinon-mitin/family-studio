@@ -7,7 +7,7 @@ import { expect, test, type Page } from '@playwright/test';
 const isMobile = (page: Page) => (page.viewportSize()?.width ?? 1000) <= 900;
 
 async function openBlank(page: Page) {
-  await page.goto('./');
+  await page.goto('./?tool=crest');
   await page.getByRole('button', { name: /Чистый лист/ }).click();
   await expect(page.locator('svg.canvas')).toBeVisible();
 }
@@ -28,7 +28,7 @@ test('стартовый экран: шаблоны открываются и р
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
-  await page.goto('./');
+  await page.goto('./?tool=crest');
   await expect(page.getByRole('heading', { name: 'Герб семьи' })).toBeVisible();
   for (const name of ['Классический щит', 'Четыре опоры', 'Две линии рода', 'Медальон', 'Дерево рода', 'Небо и море', 'Три поколения', 'Наш путь']) {
     await expect(page.getByRole('button', { name: new RegExp(name) })).toBeVisible();
@@ -125,7 +125,7 @@ test('никаких внешних запросов', async ({ page, baseURL })
     const u = r.url();
     if (!u.startsWith(origin) && !u.startsWith('data:') && !u.startsWith('blob:')) external.push(u);
   });
-  await page.goto('./');
+  await page.goto('./?tool=crest');
   await page.getByRole('button', { name: /Медальон/ }).click();
   await page.waitForTimeout(500);
   expect(external).toEqual([]);
@@ -133,7 +133,7 @@ test('никаких внешних запросов', async ({ page, baseURL })
 
 test('экспорт в SVG, PNG и PDF', async ({ page }) => {
   test.skip(isMobile(page), 'экспорт проверяется на компьютере');
-  await page.goto('./');
+  await page.goto('./?tool=crest');
   await page.getByRole('button', { name: /Классический щит/ }).click();
   await page.getByPlaceholder('Название семьи (для PDF)').fill('Ивановы');
   // заметка попадёт в PDF
@@ -195,7 +195,7 @@ test('стереть мои данные очищает хранилище', asy
   await addSymbol(page, 'Дуб');
   expect(await autosaved(page)).not.toBeNull();
   page.once('dialog', (d) => d.accept());
-  await page.goto('./');
+  await page.goto('./?tool=crest');
   await page.getByRole('button', { name: 'Стереть мои данные' }).click();
   await page.waitForTimeout(300);
   expect(await page.evaluate(() => localStorage.getItem('family-crest:autosave:v1'))).toBeNull();
@@ -205,7 +205,7 @@ test('английский интерфейс: переключение, зап�
   const errors: string[] = [];
   page.on('pageerror', (e) => errors.push(e.message));
   page.on('console', (m) => m.type() === 'error' && errors.push(m.text()));
-  await page.goto('./');
+  await page.goto('./?tool=crest');
   await expect(page.locator('html')).toHaveAttribute('lang', 'ru');
   await page.getByRole('button', { name: 'English' }).click();
 

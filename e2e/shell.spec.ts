@@ -1,7 +1,7 @@
 import { expect, test, type Page } from '@playwright/test';
 
 test('оболочка: полоса с названием и один переключатель языка над гербом', async ({ page }) => {
-  await page.goto('./');
+  await page.goto('./?tool=crest');
   await expect(page.getByText('Студия семьи', { exact: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: 'Студия семьи' })).toHaveCount(0);
   await expect(page.getByRole('group', { name: 'Язык' })).toHaveCount(1);
@@ -10,7 +10,7 @@ test('оболочка: полоса с названием и один пере�
 });
 
 test('английский: название вкладки и оболочки', async ({ page }) => {
-  await page.goto('./');
+  await page.goto('./?tool=crest');
   await page.getByRole('button', { name: 'English' }).click();
   await expect(page).toHaveTitle('Family crest — Family Studio');
   await expect(page.getByText('Family Studio', { exact: true })).toBeVisible();
@@ -23,7 +23,7 @@ test('?only=crest показывает только герб, без вклад�
 });
 
 test('полоса не прячет редактор', async ({ page }) => {
-  await page.goto('./');
+  await page.goto('./?tool=crest');
   await page.getByRole('button', { name: /Чистый лист/ }).click();
   const canvas = page.locator('svg.canvas');
   await expect(canvas).toBeVisible();
@@ -37,7 +37,7 @@ const readAutosave = (page: Page) => page.evaluate((key) => localStorage.getItem
 
 /** Чистый лист с одним символом; ждёт, пока автосохранение (400 мс) ляжет в localStorage. */
 async function crestWithAutosave(page: Page) {
-  await page.goto('./');
+  await page.goto('./?tool=crest');
   await page.getByRole('button', { name: /Чистый лист/ }).click();
   await expect(page.locator('svg.canvas')).toBeVisible();
   if ((page.viewportSize()?.width ?? 1000) <= 900) await page.getByRole('button', { name: 'Добавить', exact: true }).click();
