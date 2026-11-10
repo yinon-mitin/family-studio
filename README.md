@@ -48,7 +48,8 @@ The site is a thin shell around the tools: a slim top bar with the site name, to
 
 - **Tool tabs** ("My Family", "Family crest") are shown when more than one tool is registered; `?only=` hides them. The first tab is the default tool.
 - **Links.** `?tool=<id>` opens a given tool: `my-family` (the default) or `crest`. `genogram` is a reserved id that will work once that tool is wired (until then it falls back to the first tool). Switching tabs updates `?tool=` in the address without adding a history entry. `?only=<id>` shows just that tool with no tabs and wins over `?tool=`. A missing or unknown value never breaks the page: the first registered tool is shown. Other parameters such as `?lang=en` are kept, so `?only=my-family&lang=en` works.
-- **Data → Erase all my data** asks for confirmation, then erases everything every registered tool keeps on the device. If one tool fails to erase (for example the browser blocks its storage), the others are still erased and a warning is shown. Both My Family and the crest are erased, and a save that was still waiting is cancelled so nothing is written back. Declining the confirmation erases nothing.
+- **Data → Erase all my data** asks for confirmation in the site's own dialog (Escape or Cancel erases nothing), then erases everything every registered tool keeps on the device, plus the remembered language (the page keeps its current language until it is reloaded). After erasing, each key is read back: when everything is gone a short "Data erased" message appears; when a key is still there or the browser blocks its storage, the message names what could not be erased (for example "My Family") and stays until it is closed, and the other tools are still erased. A save that was still waiting is cancelled so nothing is written back, and the crest start screen no longer offers the erased crest. The menu closes with Escape or a press outside it.
+- **Limitations.** Data is per browser and per device. Erasing in one tab does not update another open tab of the same site until that tab is reloaded (an open tab can write its drawing back with its next change).
 
 Tools are registered in `src/shell/tools.ts`; a tool is an id, a tab title, a component and a `clearData()` function.
 
@@ -56,7 +57,8 @@ Tools are registered in `src/shell/tools.ts`; a tool is an id, a tab title, a co
 src/shell/route.ts     resolveRoute (address to tool and tabs) and toolUrl
 src/shell/tools.ts     the tool registry
 src/shell/nav.ts       the current tool (kept in the address) and the useTool hook
-src/shell/wipeAll.ts   erases the data of all tools, continuing past failures
+src/shell/wipeAll.ts   erases the data of all targets, continuing past failures and keeping who failed and why
+src/shell/wipeTargets.ts  what erase-all removes: each tool's data and the saved language
 src/shell/ToolBar.tsx  top bar: name, tabs, Data menu, language switch
 src/shell/Shell.tsx    bar plus the current tool, sets the page title
 ```
@@ -127,7 +129,7 @@ End-to-end tests need the Playwright browser (`npx playwright install chromium`)
 - **Templates:** every template, in both languages, is checked geometrically (`tests/templates.test.ts`): nothing leaves the canvas, symbols stay inside the shield and their own field with a margin and do not touch each other, the shield, ornaments and captions are mirror-symmetric about the vertical axis, captions do not run into the shield, symbols or rings.
 - **Shield fields:** for every shape and division, a symbol fits its field; mirrored fields are mirror images.
 - **Translations:** both dictionaries have the same keys and placeholders, English text has no Cyrillic, and nothing in the catalog is untranslated.
-- **End to end:** both paths from start to export, drag, rotate, scale, restoring after a reload, erasing data, no external requests, and switching the language. The shell has its own tests: address routing, tool switching and the erase-all helper (Vitest), and the tabs, `?only=`, the page title and the erase-all menu with and without confirmation, for both tools (Playwright).
+- **End to end:** both paths from start to export, drag, rotate, scale, restoring after a reload, erasing data, no external requests, and switching the language. The shell has its own tests: address routing, tool switching, the erase-all helper and the storage check that reports a failed erase (Vitest), and the tabs, `?only=`, the page title and description, the Data menu, touch target sizes on phones, the erase-all dialog (confirmed, declined with the button or Escape, for both tools), its success and failure messages, and the erased crest not coming back (Playwright).
 - **My Family:** the document model, the validated file and autosave format (damaged and hostile files), the SVG renderer, the exports, the store (autosave timing, a replaced drawing never coming back) and the download step (Vitest); in the browser (Playwright) adding, dragging within the sheet, an interrupted gesture, overlapping, properties, keyboard shortcuts, orientation, phones, save / open, PNG / SVG / PDF files (the PDF is checked with `pdfinfo` and `pdftoppm`), failures, and no external requests.
 
 ## Deployment
