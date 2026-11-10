@@ -10,6 +10,8 @@ const OUTER_SVG = /^<svg[^>]*>([\s\S]*)<\/svg>$/;
 interface Drag {
   id: string;
   pointerId: number;
+  /** Merge key of this gesture: a new gesture never joins the undo step of an earlier one. */
+  key: string;
   /** Figure centre minus the grabbed point, in sheet units: the figure does not jump under the finger. */
   dx: number;
   dy: number;
@@ -22,6 +24,8 @@ function toSheet(svg: SVGSVGElement, e: PointerEvent): { x: number; y: number } 
   return Number.isFinite(p.x) && Number.isFinite(p.y) ? { x: p.x, y: p.y } : null;
 }
 
+let gestures = 0;
+
 export function Sheet() {
   const doc = useDocStore(store, (s) => s.doc);
   const selected = useUi((u) => u.selected);
@@ -32,7 +36,10 @@ export function Sheet() {
 
   const onDown = (e: PointerEvent) => {
     if (e.button !== 0) return;
-    if (drag.current && drag.current.pointerId !== e.pointerId) return; // a second finger does nothing
+    if (drag.current && drag.current.pointerId !== e.pointerId) {
+      if (!e.isPrimary) return; // a second finger during a drag does nothing
+      drag.current = null; // a new primary pointer: the earlier gesture lost its end event
+    }
     const svg = e.currentTarget as SVGSVGElement;
     const id = (e.target as Element).closest('[data-fig]')?.getAttribute('data-fig');
     const fig = id ? store.get().doc.figures.find((f) => f.id === id) : undefined;
@@ -44,7 +51,7 @@ export function Sheet() {
     select(fig.id);
     const p = toSheet(svg, e);
     if (!p) return;
-    drag.current = { id: fig.id, pointerId: e.pointerId, dx: fig.x - p.x, dy: fig.y - p.y };
+    drag.current = { id: fig.id, pointerId: e.pointerId, key: `drag:${fig.id}:${++gestures}`, dx: fig.x - p.x, dy: fig.y - p.y };
     try {
       svg.setPointerCapture(e.pointerId);
     } catch {
@@ -56,7 +63,7 @@ export function Sheet() {
     const g = drag.current;
     if (!g || g.pointerId !== e.pointerId) return;
     const p = toSheet(e.currentTarget as SVGSVGElement, e);
-    if (p) patch(g.id, { x: p.x + g.dx, y: p.y + g.dy }, 'drag:' + g.id);
+    if (p) patch(g.id, { x: p.x + g.dx, y: p.y + g.dy }, g.key);
   };
 
   const onEnd = (e: PointerEvent) => {

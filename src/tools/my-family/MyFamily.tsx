@@ -12,14 +12,15 @@ function useShortcuts() {
     const onKey = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement | null)?.closest?.('input, textarea, select, [contenteditable]')) return;
       const mod = e.ctrlKey || e.metaKey;
-      const key = e.key.toLowerCase();
-      if (mod && key === 'z') {
+      // Match the physical key too: on a Russian layout Ctrl+Z reports the letter "я".
+      const is = (letter: string) => e.code === 'Key' + letter.toUpperCase() || e.key.toLowerCase() === letter;
+      if (mod && is('z')) {
         e.preventDefault();
         if (e.shiftKey) redo();
         else undo();
         return;
       }
-      if (mod && key === 'y') {
+      if (mod && is('y')) {
         e.preventDefault();
         redo();
         return;
@@ -32,7 +33,7 @@ function useShortcuts() {
       }
       const fig = id === null ? undefined : store.get().doc.figures.find((f) => f.id === id);
       if (!fig) return;
-      if (e.key === 'Delete') {
+      if (e.key === 'Delete' || e.key === 'Backspace') {
         e.preventDefault();
         remove(fig.id);
       } else if (e.key in ARROWS) {

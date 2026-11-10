@@ -1283,3 +1283,125 @@ input[type='range'] {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 }
+
+/* Shape properties */
+
+.mf-props {
+  margin-top: 14px;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+
+.mf-swatches {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px 8px;
+  padding: 4px 0;
+}
+
+.mf-swatch {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  padding: 0;
+  border: 2px solid #8a8472;
+  border-radius: 50%;
+}
+
+.mf-swatch svg {
+  width: 22px;
+  height: 22px;
+}
+
+.mf-swatch[aria-pressed='true'] {
+  box-shadow: 0 0 0 2px #fff, 0 0 0 5px var(--navy);
+}
+
+.mf-swatch:focus-visible,
+.mf-texture:focus-visible {
+  outline-offset: 3px;
+}
+
+.mf-textures {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.mf-texture {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  min-height: 72px;
+  padding: 6px 4px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.mf-texture:hover {
+  border-color: var(--navy);
+}
+
+.mf-texture[aria-pressed='true'] {
+  border-color: var(--navy);
+  box-shadow: 0 0 0 2px var(--navy);
+  background: #f6f1e0;
+}
+
+.mf-texture-preview {
+  width: 40px;
+  height: 40px;
+  border: 1px solid #8a8472;
+  border-radius: 6px;
+}
+
+.mf-order {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.mf-order .btn,
+.mf-actions .btn {
+  white-space: normal;
+  text-align: center;
+}
+
+.mf-actions {
+  margin-top: 8px;
+}
+
+/* Phone: the panel sits below the sheet and scrolls instead of squeezing the sheet. */
+@media (max-width: 900px) {
+  .mf-panel {
+    max-height: 42dvh;
+    overflow-y: auto;
+  }
+
+  .mf-order {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .mf-textures {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+  }
+
+  .mf-texture {
+    font-size: 11px;
+    min-height: 64px;
+    padding: 4px 2px;
+  }
+
+  .mf-order .btn {
+    padding: 4px 6px;
+    font-size: 13px;
+  }
+}

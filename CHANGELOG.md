@@ -6,6 +6,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- "My Family" shape properties: when a shape is selected, the panel offers 13 colours (named, with a visible chosen state and a framed white), size and rotation sliders (rotation in steps of 15 degrees), five textures with previews or "Plain", Up / Down / To front / To back, Duplicate and Delete. Dragging a slider is one undo step.
+- "My Family" saves the last change at once when the page is hidden or closed (`pagehide`, tab switch), instead of waiting for the 400 ms pause; Backspace also deletes the selected shape.
 - "My Family" tool, a second tool in the shell: an A4 sheet that fits the screen (landscape on wide screens, portrait on phones) where circles, squares, rectangles and triangles are added with buttons and dragged with a finger or mouse; arrows move the selected shape (Shift for bigger steps), Delete removes it, Ctrl+Z / Ctrl+Y undo and redo, "Previous / Next shape" reach even a fully covered shape, "New drawing" starts over, and the drawing is saved on the device automatically. The groundwork from the earlier tasks (document history store, sheet model, validated autosave and file format, SVG renderer, SVG/PNG/PDF export code) is part of this tool.
 - "Data" menu in the shell bar with "Erase all my data": after confirmation it wipes what every tool stored on this device and warns if the browser blocked part of it.
 - Family Studio shell: a slim top bar with the site name, a tool registry, tool tabs (hidden with a single tool) and one language switch shared by all tools; the browser tab title follows the language and the tool ("Family crest — Family Studio").
@@ -21,4 +23,6 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Browser storage keys, the project file marker (`family-crest`) and downloaded file names are intentionally unchanged, so crests saved before the merge still open.
 
 ### Fixed
+- "My Family" undo and redo shortcuts (Ctrl/Cmd+Z, Ctrl+Y, Ctrl+Shift+Z) now work on a Russian keyboard layout too.
+- "My Family" two quick drags of the same shape are two undo steps, and a drag whose end event never arrived no longer blocks the next one.
 - Erasing data from the shell now cancels a pending crest autosave, so the erased crest is not written back to the device a moment later (new `resetDoc()` in the crest store).

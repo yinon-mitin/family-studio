@@ -20,15 +20,27 @@ let saveTimer: ReturnType<typeof setTimeout> | undefined;
 // While true, document changes do not schedule an autosave (erasing data must not write anything back).
 let quiet = false;
 
+function writeNow(): void {
+  const doc = store.get().doc;
+  // An empty drawing is never stored: it would only replace a real one with nothing.
+  if (doc.figures.length > 0) saveAuto(doc);
+  else clearAuto();
+}
+
 function scheduleSave(): void {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(() => {
     saveTimer = undefined;
-    const doc = store.get().doc;
-    // An empty drawing is never stored: it would only replace a real one with nothing.
-    if (doc.figures.length > 0) saveAuto(doc);
-    else clearAuto();
+    writeNow();
   }, SAVE_DELAY_MS);
+}
+
+/** Writes a pending autosave at once (the page is going away). With nothing pending, or after `clearData`, it writes nothing. */
+export function flushAutosave(): void {
+  if (saveTimer === undefined) return;
+  clearTimeout(saveTimer);
+  saveTimer = undefined;
+  writeNow();
 }
 
 export const store = createDocStore<MyFamilyDoc>({
@@ -37,6 +49,14 @@ export const store = createDocStore<MyFamilyDoc>({
     if (!quiet) scheduleSave();
   },
 });
+
+// The last change within the debounce window must survive closing the tab or switching away on a phone.
+if (hasWindow() && typeof window.addEventListener === 'function') window.addEventListener('pagehide', flushAutosave);
+if (typeof document !== 'undefined' && typeof document.addEventListener === 'function') {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'hidden') flushAutosave();
+  });
+}
 
 // ---------- selection and toast ----------
 

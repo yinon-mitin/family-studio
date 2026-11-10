@@ -202,3 +202,205 @@ test('по умолчанию открывается «Моя семья», вк
   await page.getByRole('navigation', { name: 'Инструменты' }).getByRole('button', { name: 'Герб семьи' }).click();
   await expect(page.getByRole('heading', { name: 'Герб семьи' })).toBeVisible();
 });
+
+// ---------- shape properties ----------
+
+const props = (page: Page) => page.getByRole('group', { name: 'Свойства фигуры' });
+const colorButtons = (page: Page) => props(page).getByRole('group', { name: 'Цвет' }).getByRole('button');
+const textureButtons = (page: Page) => props(page).getByRole('group', { name: 'Фактура' }).getByRole('button');
+const sizeSlider = (page: Page) => props(page).getByRole('slider', { name: /^Размер/ });
+const rotationSlider = (page: Page) => props(page).getByRole('slider', { name: /^Поворот/ });
+const act = (page: Page, name: string) => props(page).getByRole('button', { name, exact: true });
+const order = (page: Page) => figures(page).evaluateAll((els) => els.map((e) => e.getAttribute('data-fig')));
+const storedOrder = async (page: Page) => (await autosaved(page)).figures.map((f: { id: string }) => f.id);
+
+test('свойства: без выбранной фигуры панели нет, при выборе видны все элементы', async ({ page }) => {
+  await open(page);
+  await expect(props(page)).toHaveCount(0);
+  await shape(page, 'Круг').click();
+  await expect(props(page)).toBeVisible();
+
+  await expect(colorButtons(page)).toHaveCount(13);
+  await expect(colorButtons(page).first()).toHaveAccessibleName('Красный');
+  await expect(colorButtons(page).nth(12)).toHaveAccessibleName('Белый');
+  await expect(sizeSlider(page)).toHaveAttribute('min', '30');
+  await expect(sizeSlider(page)).toHaveAttribute('max', '260');
+  await expect(rotationSlider(page)).toHaveAttribute('min', '0');
+  await expect(rotationSlider(page)).toHaveAttribute('max', '345');
+  await expect(rotationSlider(page)).toHaveAttribute('step', '15');
+  await expect(textureButtons(page)).toHaveCount(6);
+  for (const name of ['Без фактуры', 'Штриховка', 'Клетка', 'Точки', 'Волны', 'Ромбы']) await expect(textureButtons(page).filter({ hasText: name })).toHaveCount(1);
+  for (const name of ['Выше', 'Ниже', 'На передний план', 'На задний план', 'Дублировать', 'Удалить']) await expect(act(page, name)).toBeVisible();
+
+  // the current choice is exposed, not only painted
+  await expect(colorButtons(page).nth(5)).toHaveAttribute('aria-pressed', 'true'); // the default blue
+  await expect(textureButtons(page).first()).toHaveAttribute('aria-pressed', 'true'); // plain
+
+  // touch targets
+  for (const b of [colorButtons(page).first(), colorButtons(page).nth(12), textureButtons(page).nth(1), act(page, 'Выше'), act(page, 'Удалить')]) {
+    const box = (await b.boundingBox())!;
+    expect(box.width).toBeGreaterThanOrEqual(40);
+    expect(box.height).toBeGreaterThanOrEqual(40);
+  }
+
+  await page.keyboard.press('Escape');
+  await expect(props(page)).toHaveCount(0);
+});
+
+test('свойства: цвет, размер, фактура и поворот попадают в автосохранение', async ({ page }) => {
+  await open(page);
+  await shape(page, 'Квадрат').click();
+  await colorButtons(page).nth(1).click();
+  await expect(colorButtons(page).nth(1)).toHaveAttribute('aria-pressed', 'true');
+  expect((await autosaved(page)).figures[0].color).toBe('#fb8c00');
+
+  await sizeSlider(page).fill('200');
+  await textureButtons(page).filter({ hasText: 'Клетка' }).click();
+  await expect(textureButtons(page).filter({ hasText: 'Клетка' })).toHaveAttribute('aria-pressed', 'true');
+  await rotationSlider(page).fill('45');
+  const f = (await autosaved(page)).figures[0];
+  expect(f).toMatchObject({ size: 200, texture: 'checks', rotation: 45 });
+
+  await textureButtons(page).filter({ hasText: 'Без фактуры' }).click();
+  expect((await autosaved(page)).figures[0].texture).toBeNull();
+});
+
+test('свойства: слайдер не склеивает правки разных фигур и сливается в один шаг отмены', async ({ page }) => {
+  await open(page);
+  await shape(page, 'Круг').click();
+  await shape(page, 'Квадрат').click();
+  await sizeSlider(page).fill('150');
+  await sizeSlider(page).fill('180'); // the same gesture: one undo step
+  await page.getByRole('button', { name: '↶ Отменить' }).click();
+  expect((await autosaved(page)).figures[1].size).toBe(100);
+});
+
+test('свойства: порядок слоёв и дублирование', async ({ page }) => {
+  await open(page);
+  await shape(page, 'Круг').click();
+  await shape(page, 'Квадрат').click();
+  await shape(page, 'Треугольник').click();
+  const [a, b, c] = await order(page);
+
+  await act(page, 'Выше').click(); // the top one stays
+  expect(await order(page)).toEqual([a, b, c]);
+
+  await act(page, 'На задний план').click();
+  expect(await order(page)).toEqual([c, a, b]);
+  expect(await storedOrder(page)).toEqual([c, a, b]);
+
+  await act(page, 'Выше').click();
+  expect(await order(page)).toEqual([a, c, b]);
+  await act(page, 'Ниже').click();
+  expect(await order(page)).toEqual([c, a, b]);
+  await act(page, 'На передний план').click();
+  expect(await order(page)).toEqual([a, b, c]);
+
+  await act(page, 'Дублировать').click();
+  await expect(figures(page)).toHaveCount(4);
+  await expect(props(page)).toBeVisible(); // the copy is selected
+  expect(await storedOrder(page)).toHaveLength(4);
+});
+
+test('свойства: «Удалить» убирает фигуру, «Отменить» возвращает', async ({ page }) => {
+  await open(page);
+  await shape(page, 'Круг').click();
+  await shape(page, 'Квадрат').click();
+  await act(page, 'Удалить').click();
+  await expect(figures(page)).toHaveCount(1);
+  await expect(props(page)).toHaveCount(0);
+  expect(await storedOrder(page)).toHaveLength(1);
+  await page.getByRole('button', { name: '↶ Отменить' }).click();
+  await expect(figures(page)).toHaveCount(2);
+});
+
+test('свойства: панель следует за новым выбором, а не за прежним', async ({ page }) => {
+  await open(page);
+  await shape(page, 'Круг').click();
+  await colorButtons(page).nth(2).click(); // yellow
+  await shape(page, 'Квадрат').click();
+  await expect(colorButtons(page).nth(5)).toHaveAttribute('aria-pressed', 'true');
+  await colorButtons(page).nth(3).click(); // green goes to the square only
+  await page.getByRole('button', { name: 'Предыдущая фигура' }).click();
+  await expect(colorButtons(page).nth(2)).toHaveAttribute('aria-pressed', 'true');
+  const saved = (await autosaved(page)).figures;
+  expect(saved.map((f: { color: string }) => f.color)).toEqual(['#fdd835', '#43a047']);
+});
+
+// ---------- keyboard and gestures ----------
+
+test('горячие клавиши работают на русской раскладке', async ({ page }) => {
+  await open(page);
+  await shape(page, 'Круг').click();
+  await shape(page, 'Квадрат').click();
+  const press = (code: string, key: string, shift = false) =>
+    page.evaluate(([c, k, s]) => window.dispatchEvent(new KeyboardEvent('keydown', { code: c as string, key: k as string, ctrlKey: true, shiftKey: s as boolean, bubbles: true, cancelable: true })), [code, key, shift]);
+  await press('KeyZ', 'я');
+  await expect(figures(page)).toHaveCount(1);
+  await press('KeyY', 'н');
+  await expect(figures(page)).toHaveCount(2);
+  await press('KeyZ', 'Я', true); // Ctrl+Shift+Z redoes too, undo first
+  await expect(figures(page)).toHaveCount(2);
+  await press('KeyZ', 'я');
+  await expect(figures(page)).toHaveCount(1);
+  await press('KeyZ', 'Я', true);
+  await expect(figures(page)).toHaveCount(2);
+});
+
+test('Backspace удаляет выбранную фигуру, но не в поле ввода', async ({ page }) => {
+  await open(page);
+  await shape(page, 'Круг').click();
+  await shape(page, 'Квадрат').click();
+  await sizeSlider(page).focus(); // focus in an input: the key belongs to the control
+  await page.keyboard.press('Backspace');
+  await expect(figures(page)).toHaveCount(2);
+  await page.locator('body').click({ position: { x: 1, y: 1 } });
+  await page.keyboard.press('Backspace');
+  await expect(figures(page)).toHaveCount(1);
+});
+
+test('последняя правка не теряется при закрытии страницы раньше 400 мс', async ({ page }) => {
+  await open(page);
+  await shape(page, 'Круг').click();
+  const stored = await page.evaluate((key) => {
+    window.dispatchEvent(new Event('pagehide'));
+    return localStorage.getItem(key);
+  }, KEY);
+  expect(JSON.parse(stored ?? 'null')?.figures).toHaveLength(1);
+});
+
+async function dragFigure(page: Page, nth: number, dx: number, dy: number) {
+  const c = await centre(page, nth);
+  await page.mouse.move(c.x, c.y);
+  await page.mouse.down();
+  await page.mouse.move(c.x + dx, c.y + dy, { steps: 4 });
+  await page.mouse.up();
+}
+
+test('два быстрых перетаскивания — два шага отмены', async ({ page }) => {
+  await open(page);
+  await shape(page, 'Круг').click();
+  const start = await centre(page, 0);
+  await dragFigure(page, 0, 60, 30);
+  const first = await centre(page, 0);
+  await dragFigure(page, 0, 60, 30);
+  const second = await centre(page, 0);
+  expect(second.x).toBeGreaterThan(first.x + 30);
+  await page.keyboard.press('Control+z');
+  const undone = await centre(page, 0);
+  expect(Math.abs(undone.x - first.x)).toBeLessThan(1);
+  expect(first.x).toBeGreaterThan(start.x + 30);
+  await page.keyboard.press('Control+z');
+  expect(Math.abs((await centre(page, 0)).x - start.x)).toBeLessThan(1);
+});
+
+test('жест, у которого не пришёл конец, не блокирует следующий', async ({ page }) => {
+  await open(page);
+  await shape(page, 'Круг').click();
+  const c = await centre(page, 0);
+  // a finger went down and its pointerup never arrived
+  await figures(page).first().dispatchEvent('pointerdown', { pointerId: 7, pointerType: 'touch', isPrimary: true, button: 0, clientX: c.x, clientY: c.y, bubbles: true });
+  await dragFigure(page, 0, 80, 50);
+  const moved = await centre(page, 0);
+  expect(moved.x).toBeGreaterThan(c.x + 40);
+});

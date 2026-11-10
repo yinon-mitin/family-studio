@@ -222,3 +222,58 @@ describe('my-family store: editing actions', () => {
     expect(s.getUi().selected).toBeNull();
   });
 });
+
+describe('my-family store: autosave flush', () => {
+  it('flushAutosave writes a pending change at once and stops the timer', () => {
+    s.add('circle');
+    expect(storage.has(STORAGE_KEY)).toBe(false);
+    s.flushAutosave();
+    expect(JSON.parse(storage.get(STORAGE_KEY)!).figures).toHaveLength(1);
+    const writes = vi.spyOn(localStorage, 'setItem');
+    vi.advanceTimersByTime(5000);
+    expect(writes).not.toHaveBeenCalled(); // the timer is gone, nothing is written twice
+  });
+
+  it('flushAutosave with nothing pending writes nothing', () => {
+    s.add('circle');
+    vi.advanceTimersByTime(400);
+    const writes = vi.spyOn(localStorage, 'setItem');
+    s.flushAutosave();
+    expect(writes).not.toHaveBeenCalled();
+  });
+
+  it('flushAutosave of a pending empty drawing removes the key', () => {
+    const id = (s.add('circle'), ids()[0]);
+    vi.advanceTimersByTime(400);
+    s.remove(id);
+    s.flushAutosave();
+    expect(storage.has(STORAGE_KEY)).toBe(false);
+  });
+
+  it('flushAutosave does not bring the key back after clearData', () => {
+    s.add('circle');
+    s.clearData();
+    s.flushAutosave();
+    expect(storage.has(STORAGE_KEY)).toBe(false);
+  });
+
+  it('pagehide and a page turning hidden flush the pending save', async () => {
+    const handlers: Record<string, () => void> = {};
+    const docHandlers: Record<string, () => void> = {};
+    const doc = { visibilityState: 'visible', addEventListener: (type: string, fn: () => void) => void (docHandlers[type] = fn) };
+    vi.stubGlobal('document', doc);
+    s = await load({ innerWidth: 1360, innerHeight: 860, addEventListener: (type: string, fn: () => void) => void (handlers[type] = fn) } as never);
+    s.add('circle');
+    expect(storage.has(STORAGE_KEY)).toBe(false);
+    handlers.pagehide();
+    expect(JSON.parse(storage.get(STORAGE_KEY)!).figures).toHaveLength(1);
+
+    storage.clear();
+    s.add('square');
+    docHandlers.visibilitychange(); // still visible: nothing yet
+    expect(storage.has(STORAGE_KEY)).toBe(false);
+    doc.visibilityState = 'hidden';
+    docHandlers.visibilitychange();
+    expect(JSON.parse(storage.get(STORAGE_KEY)!).figures).toHaveLength(2);
+  });
+});
