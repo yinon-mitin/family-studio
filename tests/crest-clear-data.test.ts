@@ -39,4 +39,10 @@ describe('crest clearData', () => {
     expect(s.past).toEqual([]);
     expect(s.future).toEqual([]);
   });
+
+  it('bumps resetSeq so an already shown start screen reads the storage again', () => {
+    const before = getState().resetSeq;
+    crest.clearData();
+    expect(getState().resetSeq).toBe(before + 1);
+  });
 });

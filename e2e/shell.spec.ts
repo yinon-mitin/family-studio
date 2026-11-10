@@ -63,6 +63,23 @@ test('«Стереть все мои данные» очищает хранил�
   await expect(page.getByRole('button', { name: /Чистый лист/ })).toBeVisible();
 });
 
+test('стирание на экране «Продолжить»: карточка исчезает и герб не возвращается', async ({ page }) => {
+  await crestWithAutosave(page);
+  await page.reload(); // the start screen with the continue card
+  const card = page.getByRole('button', { name: /Продолжить/ });
+  await expect(card).toBeVisible();
+  page.once('dialog', (d) => d.accept());
+  await page.getByText('Данные', { exact: true }).click();
+  await page.getByRole('button', { name: 'Стереть все мои данные' }).click();
+  await expect(card).toHaveCount(0);
+  await page.waitForTimeout(900);
+  expect(await readAutosave(page)).toBeNull();
+  await page.reload();
+  await expect(page.getByRole('button', { name: /Чистый лист/ })).toBeVisible();
+  await expect(card).toHaveCount(0);
+  expect(await readAutosave(page)).toBeNull();
+});
+
 test('отказ в подтверждении ничего не стирает', async ({ page }) => {
   await crestWithAutosave(page);
   page.once('dialog', (d) => d.dismiss());

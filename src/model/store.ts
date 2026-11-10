@@ -21,6 +21,8 @@ export interface State {
   replace: boolean;
   toast: string | null;
   dialog: 'about' | 'export' | 'newdoc' | null;
+  /** Grows on every reset: the start screen is keyed by it, so it reads the (now erased) storage again. */
+  resetSeq: number;
 }
 
 let state: State = {
@@ -34,6 +36,7 @@ let state: State = {
   replace: false,
   toast: null,
   dialog: null,
+  resetSeq: 0,
 };
 
 const listeners = new Set<() => void>();
@@ -117,7 +120,7 @@ export function openDoc(doc: CrestDoc): void {
 export function resetDoc(): void {
   clearTimeout(saveTimer);
   lastKey = '';
-  setState({ doc: emptyDoc(), past: [], future: [], selected: null, pane: 'add', tab: 'shield', replace: false, screen: 'start', dialog: null });
+  setState({ doc: emptyDoc(), past: [], future: [], selected: null, pane: 'add', tab: 'shield', replace: false, screen: 'start', dialog: null, resetSeq: state.resetSeq + 1 });
 }
 
 export function goStart(): void {
