@@ -23,6 +23,8 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Browser storage keys, the project file marker (`family-crest`) and downloaded file names are intentionally unchanged, so crests saved before the merge still open.
 
 ### Fixed
-- "My Family" undo and redo shortcuts (Ctrl/Cmd+Z, Ctrl+Y, Ctrl+Shift+Z) now work on a Russian keyboard layout too.
+- "My Family" undo and redo shortcuts (Ctrl/Cmd+Z, Ctrl+Y, Ctrl+Shift+Z) now work on a Russian keyboard layout too, without breaking QWERTZ, AZERTY or Dvorak (the typed Latin letter wins; other browser shortcuts such as Ctrl+F are left alone).
+- "My Family" on phones: the sheet no longer changes size when a shape gets selected (the panel has a fixed height and scrolls), so a shape grabbed by a finger does not jump.
+- "My Family" Ctrl+Z, Delete and Backspace keep working after a slider was touched; arrow keys stay with the slider.
 - "My Family" two quick drags of the same shape are two undo steps, and a drag whose end event never arrived no longer blocks the next one.
 - Erasing data from the shell now cancels a pending crest autosave, so the erased crest is not written back to the device a moment later (new `resetDoc()` in the crest store).

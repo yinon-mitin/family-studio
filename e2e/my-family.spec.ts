@@ -212,7 +212,14 @@ const sizeSlider = (page: Page) => props(page).getByRole('slider', { name: /^Р�
 const rotationSlider = (page: Page) => props(page).getByRole('slider', { name: /^Поворот/ });
 const act = (page: Page, name: string) => props(page).getByRole('button', { name, exact: true });
 const order = (page: Page) => figures(page).evaluateAll((els) => els.map((e) => e.getAttribute('data-fig')));
-const storedOrder = async (page: Page) => (await autosaved(page)).figures.map((f: { id: string }) => f.id);
+const readStored = (page: Page) => page.evaluate((key) => JSON.parse(localStorage.getItem(key) ?? 'null'), KEY);
+/** Waits (no fixed sleep) until the autosave holds a document that satisfies `ok`, and returns it. */
+async function storedWhere(page: Page, ok: (doc: { figures: Record<string, any>[] }) => boolean) {
+  const holds = (doc: unknown) => doc !== null && ok(doc as { figures: Record<string, any>[] });
+  await expect.poll(async () => holds(await readStored(page)), { timeout: 5000 }).toBe(true);
+  return (await readStored(page)) as { figures: Record<string, any>[] };
+}
+const storedIds = (page: Page) => readStored(page).then((d) => (d?.figures ?? []).map((f: { id: string }) => f.id));
 
 test('свойства: без выбранной фигуры панели нет, при выборе видны все элементы', async ({ page }) => {
   await open(page);
@@ -252,17 +259,17 @@ test('свойства: цвет, размер, фактура и поворот
   await shape(page, 'Квадрат').click();
   await colorButtons(page).nth(1).click();
   await expect(colorButtons(page).nth(1)).toHaveAttribute('aria-pressed', 'true');
-  expect((await autosaved(page)).figures[0].color).toBe('#fb8c00');
+  await storedWhere(page, (d) => d.figures[0].color === '#fb8c00');
 
   await sizeSlider(page).fill('200');
   await textureButtons(page).filter({ hasText: 'Клетка' }).click();
   await expect(textureButtons(page).filter({ hasText: 'Клетка' })).toHaveAttribute('aria-pressed', 'true');
   await rotationSlider(page).fill('45');
-  const f = (await autosaved(page)).figures[0];
-  expect(f).toMatchObject({ size: 200, texture: 'checks', rotation: 45 });
+  const doc = await storedWhere(page, (d) => d.figures[0].size === 200 && d.figures[0].texture === 'checks' && d.figures[0].rotation === 45);
+  expect(doc.figures[0]).toMatchObject({ size: 200, texture: 'checks', rotation: 45 });
 
   await textureButtons(page).filter({ hasText: 'Без фактуры' }).click();
-  expect((await autosaved(page)).figures[0].texture).toBeNull();
+  await storedWhere(page, (d) => d.figures[0].texture === null);
 });
 
 test('свойства: слайдер не склеивает правки разных фигур и сливается в один шаг отмены', async ({ page }) => {
@@ -271,8 +278,9 @@ test('свойства: слайдер не склеивает правки ра
   await shape(page, 'Квадрат').click();
   await sizeSlider(page).fill('150');
   await sizeSlider(page).fill('180'); // the same gesture: one undo step
+  await storedWhere(page, (d) => d.figures[1].size === 180);
   await page.getByRole('button', { name: '↶ Отменить' }).click();
-  expect((await autosaved(page)).figures[1].size).toBe(100);
+  await storedWhere(page, (d) => d.figures[1].size === 100);
 });
 
 test('свойства: порядок слоёв и дублирование', async ({ page }) => {
@@ -287,7 +295,7 @@ test('свойства: порядок слоёв и дублирование', 
 
   await act(page, 'На задний план').click();
   expect(await order(page)).toEqual([c, a, b]);
-  expect(await storedOrder(page)).toEqual([c, a, b]);
+  await expect.poll(() => storedIds(page)).toEqual([c, a, b]);
 
   await act(page, 'Выше').click();
   expect(await order(page)).toEqual([a, c, b]);
@@ -299,7 +307,7 @@ test('свойства: порядок слоёв и дублирование', 
   await act(page, 'Дублировать').click();
   await expect(figures(page)).toHaveCount(4);
   await expect(props(page)).toBeVisible(); // the copy is selected
-  expect(await storedOrder(page)).toHaveLength(4);
+  await expect.poll(async () => (await storedIds(page)).length).toBe(4);
 });
 
 test('свойства: «Удалить» убирает фигуру, «Отменить» возвращает', async ({ page }) => {
@@ -309,7 +317,7 @@ test('свойства: «Удалить» убирает фигуру, «Отм
   await act(page, 'Удалить').click();
   await expect(figures(page)).toHaveCount(1);
   await expect(props(page)).toHaveCount(0);
-  expect(await storedOrder(page)).toHaveLength(1);
+  await expect.poll(async () => (await storedIds(page)).length).toBe(1);
   await page.getByRole('button', { name: '↶ Отменить' }).click();
   await expect(figures(page)).toHaveCount(2);
 });
@@ -323,8 +331,7 @@ test('свойства: панель следует за новым выборо
   await colorButtons(page).nth(3).click(); // green goes to the square only
   await page.getByRole('button', { name: 'Предыдущая фигура' }).click();
   await expect(colorButtons(page).nth(2)).toHaveAttribute('aria-pressed', 'true');
-  const saved = (await autosaved(page)).figures;
-  expect(saved.map((f: { color: string }) => f.color)).toEqual(['#fdd835', '#43a047']);
+  await expect.poll(async () => ((await readStored(page))?.figures ?? []).map((f: { color: string }) => f.color)).toEqual(['#fdd835', '#43a047']);
 });
 
 // ---------- keyboard and gestures ----------
@@ -347,22 +354,50 @@ test('горячие клавиши работают на русской рас�
   await expect(figures(page)).toHaveCount(2);
 });
 
-test('Backspace удаляет выбранную фигуру, но не в поле ввода', async ({ page }) => {
+test('Backspace удаляет выбранную фигуру, но не в текстовом поле', async ({ page }) => {
   await open(page);
   await shape(page, 'Круг').click();
   await shape(page, 'Квадрат').click();
-  await sizeSlider(page).focus(); // focus in an input: the key belongs to the control
+  // a text field (none in the app itself): the key belongs to it
+  await page.evaluate(() => {
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.id = 'probe';
+    document.body.append(input);
+    input.focus();
+  });
   await page.keyboard.press('Backspace');
   await expect(figures(page)).toHaveCount(2);
-  await page.locator('body').click({ position: { x: 1, y: 1 } });
+  // a slider is not a text field: Backspace deletes the shape
+  await sizeSlider(page).focus();
   await page.keyboard.press('Backspace');
   await expect(figures(page)).toHaveCount(1);
+  await page.keyboard.press('Control+z');
+  await expect(figures(page)).toHaveCount(2);
+});
+
+test('после слайдера работают Ctrl+Z, а стрелки остаются слайдеру', async ({ page }) => {
+  await open(page);
+  await shape(page, 'Круг').click();
+  await storedWhere(page, (d) => d.figures.length === 1);
+  const before = (await readStored(page)).figures[0];
+  await sizeSlider(page).fill('200');
+  await storedWhere(page, (d) => d.figures[0].size === 200);
+  await page.keyboard.press('Control+z'); // the focus is still on the slider
+  await storedWhere(page, (d) => d.figures[0].size === 100);
+
+  await rotationSlider(page).focus();
+  await page.keyboard.press('ArrowRight'); // turns the slider, does not nudge the shape
+  const after = await storedWhere(page, (d) => d.figures[0].rotation === 15);
+  expect(after.figures[0].x).toBe(before.x);
+  expect(after.figures[0].y).toBe(before.y);
 });
 
 test('последняя правка не теряется при закрытии страницы раньше 400 мс', async ({ page }) => {
   await open(page);
-  await shape(page, 'Круг').click();
+  // all in one task: the change, the pagehide and the read happen far inside the 400 ms debounce
   const stored = await page.evaluate((key) => {
+    [...document.querySelectorAll('button')].find((b) => b.textContent?.trim() === 'Круг')!.click();
     window.dispatchEvent(new Event('pagehide'));
     return localStorage.getItem(key);
   }, KEY);
@@ -403,4 +438,29 @@ test('жест, у которого не пришёл конец, не блок�
   await dragFigure(page, 0, 80, 50);
   const moved = await centre(page, 0);
   expect(moved.x).toBeGreaterThan(c.x + 40);
+});
+
+test('на телефоне лист не меняет размер и фигура не прыгает при выборе перетаскиванием', async ({ page }) => {
+  test.skip(!isMobile(page), 'the panel sits below the sheet only on narrow screens');
+  await open(page);
+  await shape(page, 'Круг').click();
+  await shape(page, 'Круг').click(); // the second circle lands 40 units aside: the first one's middle stays free
+  const empty = await onSheet(page, 100, 100);
+  await page.mouse.click(empty.x, empty.y); // nothing is selected now
+  await expect(props(page)).toHaveCount(0);
+  const before = (await sheet(page).boundingBox())!;
+  const c = await centre(page, 0);
+  await page.mouse.move(c.x, c.y);
+  await page.mouse.down(); // selects the figure; the properties appear
+  await expect(props(page)).toBeVisible();
+  await page.mouse.move(c.x + 30, c.y + 20, { steps: 6 });
+  await page.mouse.up();
+  const after = (await sheet(page).boundingBox())!;
+  expect(after.x).toBeCloseTo(before.x, 0);
+  expect(after.y).toBeCloseTo(before.y, 0);
+  expect(after.width).toBeCloseTo(before.width, 0);
+  expect(after.height).toBeCloseTo(before.height, 0);
+  const moved = await centre(page, 0);
+  expect(Math.abs(moved.x - (c.x + 30))).toBeLessThan(1.5);
+  expect(Math.abs(moved.y - (c.y + 20))).toBeLessThan(1.5);
 });

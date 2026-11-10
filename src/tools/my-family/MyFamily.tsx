@@ -3,6 +3,7 @@ import { useDocStore } from '../../core/useDocStore.ts';
 import { t, useLang } from '../../i18n/index.ts';
 import { Panel } from './Panel.tsx';
 import { Sheet } from './Sheet.tsx';
+import { shortcutOf } from './shortcuts.ts';
 import { getUi, newDrawing, patch, redo, remove, select, store, undo, useUi } from './store.ts';
 
 const ARROWS: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
@@ -10,19 +11,16 @@ const ARROWS: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRigh
 function useShortcuts() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if ((e.target as HTMLElement | null)?.closest?.('input, textarea, select, [contenteditable]')) return;
+      // Text fields keep their keys. A slider is not a text field: it only keeps the arrows.
+      const field = (e.target as HTMLElement | null)?.closest?.('input, textarea, select, [contenteditable]');
+      const slider = field instanceof HTMLInputElement && field.type === 'range';
+      if (field && !slider) return;
       const mod = e.ctrlKey || e.metaKey;
-      // Match the physical key too: on a Russian layout Ctrl+Z reports the letter "я".
-      const is = (letter: string) => e.code === 'Key' + letter.toUpperCase() || e.key.toLowerCase() === letter;
-      if (mod && is('z')) {
+      const action = shortcutOf(e);
+      if (action) {
         e.preventDefault();
-        if (e.shiftKey) redo();
-        else undo();
-        return;
-      }
-      if (mod && is('y')) {
-        e.preventDefault();
-        redo();
+        if (action === 'undo') undo();
+        else redo();
         return;
       }
       if (mod || e.altKey) return;
@@ -36,7 +34,7 @@ function useShortcuts() {
       if (e.key === 'Delete' || e.key === 'Backspace') {
         e.preventDefault();
         remove(fig.id);
-      } else if (e.key in ARROWS) {
+      } else if (e.key in ARROWS && !slider) {
         e.preventDefault();
         const step = e.shiftKey ? 20 : 4;
         const [dx, dy] = ARROWS[e.key];

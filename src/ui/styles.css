@@ -1381,8 +1381,9 @@ input[type='range'] {
 
 /* Phone: the panel sits below the sheet and scrolls instead of squeezing the sheet. */
 @media (max-width: 900px) {
+  /* A fixed height: selecting a shape must not resize the sheet under the finger. */
   .mf-panel {
-    max-height: 42dvh;
+    height: 42dvh;
     overflow-y: auto;
   }
 
