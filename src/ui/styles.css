@@ -1428,3 +1428,10 @@ input[type='range'] {
     font-size: 13px;
   }
 }
+
+/* Короткое сообщение вместо инструмента, пока он загружается или не загрузился. */
+.tool-note {
+  margin: 0;
+  padding: 24px 18px;
+  text-align: center;
+}

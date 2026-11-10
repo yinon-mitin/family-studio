@@ -152,6 +152,27 @@ test('стирание: если хранилище не даёт удалить
   await expect(page.getByText('Данные стёрты')).toHaveCount(0);
 });
 
+test('«Моя семья» открывается без ресурсов герба: ни значков, ни файлов шрифтов для контуров', async ({ page }) => {
+  const urls: string[] = [];
+  page.on('request', (r) => urls.push(new URL(r.url()).pathname));
+  await page.goto('./?only=my-family');
+  await expect(page.locator('svg.mf-sheet')).toBeVisible();
+  await page.waitForLoadState('networkidle');
+  expect(urls.filter((u) => /symbols/.test(u))).toEqual([]);
+  expect(urls.filter((u) => /\.woff$/.test(u))).toEqual([]); // the .woff files are read by the crest text outlines; the page itself uses woff2
+});
+
+test('сбой загрузки ресурсов герба виден только во вкладке герба', async ({ page }) => {
+  await page.route(/symbols-.*\.js/, (route) => route.abort());
+  await page.goto('./');
+  await expect(page.locator('svg.mf-sheet')).toBeVisible();
+  await tabs(page).getByRole('button', { name: 'Герб семьи' }).click();
+  await expect(page.getByText('Не удалось загрузить ресурсы сайта')).toBeVisible();
+  await tabs(page).getByRole('button', { name: 'Моя семья' }).click();
+  await expect(page.locator('svg.mf-sheet')).toBeVisible();
+  await expect(page.getByText('Не удалось загрузить ресурсы сайта')).toHaveCount(0);
+});
+
 // ---------- вкладки и «Моя семья» ----------
 
 const MF_KEY = 'family-studio:my-family:autosave:v1';

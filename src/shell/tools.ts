@@ -1,7 +1,7 @@
 import { t } from '../i18n/index.ts';
 import { eraseAuto } from '../model/serialize.ts';
 import { resetDoc } from '../model/store.ts';
-import { App } from '../ui/App.tsx';
+import { CrestTool } from '../ui/CrestTool.tsx';
 import { MyFamily } from '../tools/my-family/MyFamily.tsx';
 import { clearData as clearMyFamily } from '../tools/my-family/store.ts';
 import type { ToolDef } from './types.ts';
@@ -12,7 +12,7 @@ export const TOOLS: ToolDef[] = [
   {
     id: 'crest',
     title: () => t('tool.crest'),
-    Component: App,
+    Component: CrestTool,
     clearData() {
       try {
         eraseAuto();
