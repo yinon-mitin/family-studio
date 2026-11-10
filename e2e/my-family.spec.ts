@@ -157,6 +157,16 @@ test('полностью закрытая фигура выбирается кн
   await page.getByRole('button', { name: 'Предыдущая фигура' }).click();
   await expect(page.locator('[data-fig="small"]')).toHaveAttribute('data-selected', 'true');
   await expect(page.locator('[data-fig="big"]')).not.toHaveAttribute('data-selected', 'true');
+  // the figure is fully covered, yet its ring shows: it is drawn last, above everything, and does not catch the pointer
+  const ring = page.locator('svg.mf-sheet > [data-selected-ring]');
+  await expect(ring).toHaveCount(1);
+  await expect(page.locator('svg.mf-sheet > :last-child')).toHaveAttribute('data-selected-ring', '');
+  await expect(ring).toHaveCSS('pointer-events', 'none');
+  const top = await page.evaluate(() => {
+    const r = document.querySelector('svg.mf-sheet > [data-selected-ring]')!.getBoundingClientRect();
+    return document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2)?.closest('[data-fig]')?.getAttribute('data-fig');
+  });
+  expect(top).toBe('big');
 
   const empty = await onSheet(page, 100, 100);
   await page.mouse.click(empty.x, empty.y);

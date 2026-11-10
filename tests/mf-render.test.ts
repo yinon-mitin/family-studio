@@ -82,6 +82,28 @@ describe('renderSheet', () => {
     expect(count(renderSheet(doc(), { selected: 'nope' }), 'data-selected')).toBe(0);
   });
 
+  it('draws the selection ring last, above every figure, and lets pointers through it', () => {
+    const svg = renderSheet(doc(), { selected: 'aaa' }); // the first figure: others are drawn after it
+    expect(count(svg, 'data-selected-ring')).toBe(1);
+    expect(svg.indexOf('data-selected-ring')).toBeGreaterThan(svg.lastIndexOf('data-fig='));
+    const ring = svg.slice(svg.lastIndexOf('<path'));
+    expect(ring).toMatch(/^<path [^>]*data-selected-ring[^>]*pointer-events="none"[^>]*\/><\/svg>$/);
+    // the ring is not inside any figure group
+    const group = new RegExp('<g data-fig="aaa"[\\s\\S]*?</g>').exec(svg)![0];
+    expect(group).not.toContain('data-selected-ring');
+    expect(group).toContain('data-selected="true"');
+  });
+
+  it('centres the ring on the selected figure', () => {
+    const svg = renderSheet({ ...doc(), figures: [fig({ id: 'q', x: 250, y: 330 })] }, { selected: 'q' });
+    expect(svg).toMatch(/<path [^>]*data-selected-ring[^>]*transform="translate\(250 330\)"/);
+  });
+
+  it('has no ring without a selection (exports)', () => {
+    expect(renderSheet(doc())).not.toContain('data-selected-ring');
+    expect(renderSheet(doc(), { selected: 'nope' })).not.toContain('data-selected-ring');
+  });
+
   it('adds a frame only on request', () => {
     expect(renderSheet(doc(), { frame: false })).not.toContain('data-frame');
     expect(renderSheet(doc())).not.toContain('data-frame');

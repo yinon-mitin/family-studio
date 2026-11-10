@@ -11,7 +11,7 @@ export interface RenderOpts {
   prefix?: string;
   /** Thin frame around the sheet (screen only; exports leave it out). */
   frame?: boolean;
-  /** Draws a dashed ring around this figure and marks its group with data-selected (screen only). */
+  /** Draws a dashed ring around this figure, last in the sheet, and marks its group with data-selected (screen only). */
   selected?: string | null;
 }
 
@@ -56,14 +56,16 @@ function renderFigure(f: Figure, index: number, prefix: string, selected: boolea
       `<g clip-path="url(#${cid})"><g transform="${scale}">${pat}</g></g>`;
   }
   body += `<path d="${d}" fill="none" stroke="${OUTLINE}" stroke-width="${OUTLINE_WIDTH}" stroke-linejoin="round"/>`;
-  let mark = '';
-  if (selected) {
-    mark =
-      `<path d="${circle(0, 0, ringRadius(f))}" fill="none" stroke="${OUTLINE}" stroke-width="2" ` +
-      `stroke-dasharray="8 6"/>`;
-  }
   const sel = selected ? ' data-selected="true"' : '';
-  return `<g data-fig="${esc(f.id)}" transform="translate(${n(f.x)} ${n(f.y)}) rotate(${n(f.rotation)})"${sel}>${body}${mark}</g>`;
+  return `<g data-fig="${esc(f.id)}" transform="translate(${n(f.x)} ${n(f.y)}) rotate(${n(f.rotation)})"${sel}>${body}</g>`;
+}
+
+// The ring is its own element after all figures: a selected figure that is covered still shows it, and it never catches a pointer.
+function renderRing(f: Figure): string {
+  return (
+    `<path data-selected-ring="" pointer-events="none" transform="translate(${n(f.x)} ${n(f.y)})" d="${circle(0, 0, ringRadius(f))}" ` +
+    `fill="none" stroke="${OUTLINE}" stroke-width="2" stroke-dasharray="8 6"/>`
+  );
 }
 
 export function renderSheet(doc: MyFamilyDoc, opts: RenderOpts = {}): string {
@@ -79,8 +81,10 @@ export function renderSheet(doc: MyFamilyDoc, opts: RenderOpts = {}): string {
   const figures = doc.figures
     .map((f, i) => renderFigure(f, i, prefix, opts.selected != null && f.id === opts.selected))
     .join('');
+  const picked = opts.selected != null ? doc.figures.find((f) => f.id === opts.selected) : undefined;
+  const ring = picked ? renderRing(picked) : '';
   return (
     `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${w} ${h}"${size}>` +
-    `<rect width="${w}" height="${h}" fill="#ffffff"/>${frame}${figures}</svg>`
+    `<rect width="${w}" height="${h}" fill="#ffffff"/>${frame}${figures}${ring}</svg>`
   );
 }
