@@ -83,6 +83,31 @@ test('новый рисунок: отказ в подтверждении нич
   await expect(figures(page)).toHaveCount(1);
 });
 
+for (const [w, h] of [[915, 412], [844, 390]]) {
+  test(`телефон на боку ${w}x${h}: лист занимает почти всю высоту и не меняется при выборе фигуры`, async ({ page }) => {
+    test.skip(test.info().project.name !== 'mobile-chromium', 'a phone held sideways');
+    await page.setViewportSize({ width: w, height: h });
+    await open(page);
+    await shape(page, 'Круг').click();
+    const empty = await onSheet(page, 100, 100);
+    await page.mouse.click(empty.x, empty.y); // nothing is selected now
+    await expect(props(page)).toHaveCount(0);
+    const without = (await sheet(page).boundingBox())!;
+    expect(without.height).toBeGreaterThanOrEqual(h * 0.7);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+
+    const c = await centre(page, 0);
+    await page.mouse.click(c.x, c.y);
+    await expect(props(page)).toBeVisible();
+    const withSel = (await sheet(page).boundingBox())!;
+    expect(withSel.height).toBeGreaterThanOrEqual(h * 0.7);
+    expect(withSel).toEqual(without);
+    // the panel is still reachable: it scrolls on its own
+    const panel = (await page.locator('.mf-panel').boundingBox())!;
+    expect(panel.y + panel.height).toBeLessThanOrEqual(h + 1);
+  });
+}
+
 test('фигура не выходит за лист', async ({ page }) => {
   await open(page);
   await shape(page, 'Круг').click();

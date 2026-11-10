@@ -1429,6 +1429,50 @@ input[type='range'] {
   }
 }
 
+/* A phone held sideways: the panel moves beside the sheet (as on a computer), so the sheet keeps most of the height. */
+@media (max-width: 900px) and (max-height: 500px) {
+  .mf {
+    grid-template-columns: minmax(0, 1fr) 280px;
+    grid-template-rows: auto minmax(0, 1fr);
+  }
+
+  .mf-bar {
+    grid-column: 1 / -1;
+    padding: 4px 12px;
+  }
+
+  .mf-stage {
+    padding: 6px;
+  }
+
+  .mf-panel {
+    grid-column: 2;
+    grid-row: 2;
+    height: auto; /* it still has a fixed size: the sheet never resizes when a figure is picked */
+    overflow-y: auto;
+    border-top: 0;
+    border-left: 1px solid var(--line);
+  }
+
+  .mf-shapes {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .mf-order {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .mf-textures {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+
+  .mf-texture {
+    font-size: 13px;
+    min-height: 72px;
+    padding: 6px 4px;
+  }
+}
+
 /* Короткое сообщение вместо инструмента, пока он загружается или не загрузился. */
 .tool-note {
   margin: 0;
