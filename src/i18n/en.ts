@@ -14,6 +14,8 @@ export const en: Record<Key, string> = {
   'shell.wipeAllAsk': 'Erase everything you created in any tool from this device? This cannot be undone.',
   'shell.wipeFailed': 'Some data could not be erased. Clear the site data in your browser settings.',
   'tool.crest': 'Family crest',
+  'tool.my-family': 'My Family',
+  'mf.file': 'my-family',
   'lang.label': 'Language',
 
   // start screen
