@@ -1,8 +1,10 @@
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
+import { cleanTmp, makeTmp } from './tmp.ts';
+
+test.afterEach(cleanTmp);
 
 const isMobile = (page: Page) => (page.viewportSize()?.width ?? 1000) <= 900;
 
@@ -141,7 +143,7 @@ test('экспорт в SVG, PNG и PDF', async ({ page }) => {
   const lb = (await lion.boundingBox())!;
   await page.mouse.click(lb.x + lb.width / 2, lb.y + lb.height / 2);
   await page.getByPlaceholder(/Что для вас значит/).fill('Мы всегда держимся вместе');
-  const dir = mkdtempSync(join(tmpdir(), 'gerb-'));
+  const dir = makeTmp('gerb-');
 
   const grab = async (format: 'PNG' | 'PDF' | 'SVG', ext: string) => {
     await page.getByRole('button', { name: 'Скачать', exact: true }).first().click();
@@ -174,7 +176,6 @@ test('экспорт в SVG, PNG и PDF', async ({ page }) => {
   const p2 = readFileSync(`${out}-2.png`);
   expect(p1.length).toBeGreaterThan(8000); // страницы не пустые
   expect(p2.length).toBeGreaterThan(5000);
-  writeFileSync(join(dir, 'where.txt'), dir);
 });
 
 test('на телефоне панели переключаются, холст виден', async ({ page }) => {
@@ -236,7 +237,7 @@ test('английский интерфейс: переключение, зап�
     await page.getByRole('radio', { name: /SVG/ }).click();
     const [dl] = await Promise.all([page.waitForEvent('download'), page.getByRole('dialog').getByRole('button', { name: 'Download', exact: true }).click()]);
     expect(dl.suggestedFilename()).toBe('family-crest-Ivanov.svg');
-    const dir = mkdtempSync(join(tmpdir(), 'crest-'));
+    const dir = makeTmp('crest-');
     await dl.saveAs(join(dir, 'c.svg'));
     const svg = readFileSync(join(dir, 'c.svg'), 'utf8');
     expect(svg).toContain('The Ivanov family crest');

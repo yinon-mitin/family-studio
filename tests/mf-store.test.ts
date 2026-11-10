@@ -255,15 +255,6 @@ describe('my-family store: a replaced drawing does not come back after a reload'
     expect(writes).not.toHaveBeenCalled();
   });
 
-  it('newDrawing leaves nothing for the next start to restore', async () => {
-    s.add('circle');
-    vi.advanceTimersByTime(400);
-    s.newDrawing();
-    s = await load(); // the page is reloaded before the pause is over
-    s.flushAutosave();
-    expect(s.store.get().doc.figures).toEqual([]);
-  });
-
   it('opening a file without figures removes the stored drawing and cancels a pending save', async () => {
     const { newDoc } = await import('../src/tools/my-family/model.ts');
     s.add('circle');

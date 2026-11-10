@@ -1,19 +1,10 @@
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
-import { tmpdir } from 'node:os';
+import { readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
+import { cleanTmp, makeTmp } from './tmp.ts';
 
-// Temp directories made by a test are removed after it, even when it fails.
-const tmpDirs: string[] = [];
-const makeTmp = (): string => {
-  const dir = mkdtempSync(join(tmpdir(), 'semya-'));
-  tmpDirs.push(dir);
-  return dir;
-};
-test.afterEach(() => {
-  for (const dir of tmpDirs.splice(0)) rmSync(dir, { recursive: true, force: true });
-});
+test.afterEach(cleanTmp);
 
 const KEY = 'family-studio:my-family:autosave:v1';
 const isMobile = (page: Page) => (page.viewportSize()?.width ?? 1000) <= 900;
@@ -821,7 +812,9 @@ test('файл: сбой при сохранении показывает соо
 test('никаких внешних запросов: добавление, перетаскивание, диалог скачивания, сохранение', async ({ page, baseURL }) => {
   const origin = new URL(baseURL!).origin;
   const requests: string[] = [];
+  const sockets: string[] = [];
   page.on('request', (r) => requests.push(r.url()));
+  page.on('websocket', (ws) => sockets.push(ws.url()));
   await open(page);
   await shape(page, 'Круг').click();
   const c = await centre(page, 0);
@@ -838,6 +831,8 @@ test('никаких внешних запросов: добавление, пе
   expect(dl.suggestedFilename()).toBe('moya-semya.json');
   await page.waitForTimeout(500);
   expect(requests.length).toBeGreaterThan(0);
-  const own = (u: string) => u.startsWith(origin) || u.startsWith('data:') || u.startsWith('blob:');
+  // a real origin comparison: 'http://localhost:4173.evil.test/' also starts with the origin string
+  const own = (u: string) => (/^https?:/.test(u) ? new URL(u).origin === origin : /^(data|blob):/.test(u));
   expect(requests.filter((u) => !own(u))).toEqual([]);
+  expect(sockets).toEqual([]);
 });

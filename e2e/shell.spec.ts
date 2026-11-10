@@ -108,23 +108,34 @@ test('?only=my-family: вкладок нет, виден только лист',
 });
 
 test('«Стереть все мои данные» очищает оба инструмента и ничего не пишет обратно', async ({ page }) => {
+  // The page clock is frozen after the first saves, so the 400 ms autosave timers of both tools are
+  // certainly still pending when the wipe is clicked, and fire only when the test moves the clock on.
+  await page.clock.install({ time: new Date('2026-03-01T10:00:00') });
   await page.goto('./');
   await page.getByRole('button', { name: 'Круг', exact: true }).click();
   await expect.poll(() => readKey(page, MF_KEY)).not.toBeNull();
   await tabs(page).getByRole('button', { name: 'Герб семьи' }).click();
   await startCrest(page);
   await expect.poll(() => readKey(page, AUTOSAVE_KEY)).not.toBeNull();
+
+  await page.clock.pauseAt(new Date('2026-03-01T11:00:00'));
+  // one more change in each tool: both autosaves are pending now, and nothing can fire them
+  await page.getByRole('button', { name: 'Дуб', exact: true }).first().click();
   await tabs(page).getByRole('button', { name: 'Моя семья' }).click();
-  await expect(page.locator('svg.mf-sheet [data-fig]')).toHaveCount(1);
-  // one more change and an immediate wipe: the autosave of this change is still pending
   await page.getByRole('button', { name: 'Квадрат', exact: true }).click();
+  await page.clock.runFor(100); // lets the page draw (effects wait for a frame); the 400 ms timers are still pending
+  await expect(page.locator('svg.mf-sheet [data-fig]')).toHaveCount(2);
+
   page.once('dialog', (d) => d.accept());
   await page.getByText('Данные', { exact: true }).click();
   await page.getByRole('button', { name: 'Стереть все мои данные' }).click();
-  await expect(page.locator('svg.mf-sheet [data-fig]')).toHaveCount(0);
-  await page.waitForTimeout(900); // longer than the 400 ms autosave pause
   expect(await readKey(page, MF_KEY)).toBeNull();
   expect(await readKey(page, AUTOSAVE_KEY)).toBeNull();
+
+  await page.clock.runFor(1000); // every timer that was pending now fires
+  expect(await readKey(page, MF_KEY)).toBeNull();
+  expect(await readKey(page, AUTOSAVE_KEY)).toBeNull();
+  await expect(page.locator('svg.mf-sheet [data-fig]')).toHaveCount(0);
   await tabs(page).getByRole('button', { name: 'Герб семьи' }).click();
   await expect(page.getByRole('button', { name: /Чистый лист/ })).toBeVisible();
   await page.reload();
