@@ -45,12 +45,12 @@ export const pick = (p: Pair): string => p[lang];
 /** Выбор из двух вариантов по текущему языку. */
 export const tx = (ruText: string, enText: string): string => (lang === 'en' ? enText : ruText);
 
-/** Применяет язык к самой странице: атрибут lang, заголовок вкладки и описание для поисковиков. */
+/** Применяет язык к самой странице: атрибут lang, заголовок вкладки (название сайта) и описание для поисковиков. */
 export function applyDocumentLang(): void {
   if (typeof document === 'undefined') return;
   document.documentElement.lang = lang;
-  document.title = t('app.title');
-  document.querySelector('meta[name="description"]')?.setAttribute('content', t('app.description'));
+  document.title = t('shell.title'); // the shell adds the tool's name once it is shown
+  document.querySelector('meta[name="description"]')?.setAttribute('content', t('shell.description'));
 }
 
 /** Forgets the saved language choice (the language in use stays until the page is reloaded). Throws if it could not be erased. */

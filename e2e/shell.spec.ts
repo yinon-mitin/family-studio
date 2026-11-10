@@ -173,6 +173,27 @@ test('сбой загрузки ресурсов герба виден толь�
   await expect(page.getByText('Не удалось загрузить ресурсы сайта')).toHaveCount(0);
 });
 
+const description = (page: Page) => page.locator('meta[name="description"]').getAttribute('content');
+
+test('описание страницы: студия, и в исходном HTML, и после загрузки, и после смены языка', async ({ page }) => {
+  const html = await (await page.request.get('./')).text();
+  expect(html).toMatch(/<meta name="description" content="[^"]*Студи[^"]*"/);
+  expect(html).not.toMatch(/Конструктор герба/);
+  expect(html).toMatch(/<title>Студия семьи<\/title>/);
+  expect(html).toContain('<meta name="referrer" content="no-referrer"');
+
+  await page.goto('./');
+  expect(await description(page)).toContain('Студия семьи');
+  expect(await description(page)).toContain('Моя семья');
+  await page.getByRole('button', { name: 'English' }).click();
+  expect(await description(page)).toContain('Family Studio');
+  expect(await description(page)).not.toMatch(/[А-Яа-я]/);
+  await page.getByRole('navigation', { name: 'Tools' }).getByRole('button', { name: 'Family crest' }).click();
+  expect(await description(page)).toContain('Family Studio'); // the same on every tool
+  await page.getByRole('button', { name: 'Русский' }).click();
+  expect(await description(page)).toContain('Студия семьи');
+});
+
 // ---------- вкладки и «Моя семья» ----------
 
 const MF_KEY = 'family-studio:my-family:autosave:v1';

@@ -3,10 +3,10 @@ import type { Key } from './ru.ts';
 
 export const en: Record<Key, string> = {
   'app.title': 'Family crest',
-  'app.description':
-    'A family crest builder for group psychology practice: put together a crest from professions, animals, nature and symbols, then download it as PNG, PDF or SVG.',
   'app.loading': 'Loading…',
   'app.loadFailed': 'Could not load the site resources. Check your connection and reload the page.',
+  'shell.description':
+    'Family Studio: tools for family work in psychology practice. My Family is a projective drawing of the family made of shapes, Family crest is a crest builder. Everything runs in your browser and your data stays on your device.',
   'shell.title': 'Family Studio',
   'shell.tools': 'Tools',
   'shell.data': 'Data',
