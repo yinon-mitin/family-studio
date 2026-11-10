@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'preact/hooks';
+import { useEffect, useRef, useState } from 'preact/hooks';
 import { t } from '../i18n/index.ts';
 import { LangSwitch } from '../ui/LangSwitch.tsx';
 import { Modal } from '../ui/Modal.tsx';
+import { useMenuDismiss } from '../ui/useMenuDismiss.ts';
 import { setTool } from './nav.ts';
 import { TOOLS } from './tools.ts';
 import type { ToolId } from './types.ts';
@@ -18,6 +19,8 @@ const closeMenu = (e: Event) => ((e.currentTarget as HTMLElement).closest('detai
 export function ToolBar({ tool, showTabs }: { tool: ToolId; showTabs: boolean }) {
   const [asking, setAsking] = useState(false);
   const [result, setResult] = useState<WipeResult>(null);
+  const menu = useRef<HTMLDetailsElement>(null);
+  useMenuDismiss(menu);
 
   // Success fades away by itself; a failure stays until it is closed, since it asks the person to do something.
   useEffect(() => {
@@ -43,7 +46,7 @@ export function ToolBar({ tool, showTabs }: { tool: ToolId; showTabs: boolean })
           ))}
         </nav>
       )}
-      <details class="menu">
+      <details class="menu" ref={menu}>
         <summary>{t('shell.data')}</summary>
         <div class="menu-list" onClick={closeMenu}>
           <button type="button" class="danger" onClick={() => setAsking(true)}>{t('shell.wipeAll')}</button>

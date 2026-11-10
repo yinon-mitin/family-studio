@@ -216,6 +216,28 @@ for (const [w, h] of [[360, 740], [412, 915], [844, 390]]) {
   });
 }
 
+test('меню «Данные» закрывается по Escape (фокус возвращается) и по щелчку снаружи', async ({ page }) => {
+  await page.goto('./');
+  const menu = page.locator('.shell-bar details.menu');
+  const summary = menu.locator('summary');
+  await summary.click();
+  await expect(menu).toHaveAttribute('open', '');
+  await page.keyboard.press('Escape');
+  await expect(menu).not.toHaveAttribute('open', '');
+  await expect(summary).toBeFocused();
+
+  await summary.click();
+  await expect(menu).toHaveAttribute('open', '');
+  await page.locator('.shell-brand').click();
+  await expect(menu).not.toHaveAttribute('open', '');
+
+  await summary.click(); // a click inside the menu does not close it by itself
+  await expect(menu).toHaveAttribute('open', '');
+  await menu.getByRole('button', { name: 'Стереть все мои данные' }).click();
+  await expect(page.getByRole('dialog', { name: 'Стереть все мои данные' })).toBeVisible();
+  await expect(menu).not.toHaveAttribute('open', '');
+});
+
 // ---------- вкладки и «Моя семья» ----------
 
 const MF_KEY = 'family-studio:my-family:autosave:v1';

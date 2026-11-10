@@ -3,6 +3,7 @@ import { useDocStore } from '../../core/useDocStore.ts';
 import { download } from '../../export/download.ts';
 import { t } from '../../i18n/index.ts';
 import { Modal } from '../../ui/Modal.tsx';
+import { useMenuDismiss } from '../../ui/useMenuDismiss.ts';
 import { exportPdf, exportPng, exportSvg, fileName } from './exports.ts';
 import { runExport, type ExportFormat } from './exportFlow.ts';
 import { readDrawingFile } from './files.ts';
@@ -104,25 +105,7 @@ export function FileMenu() {
   const input = useRef<HTMLInputElement>(null);
   const [exporting, setExporting] = useState(false);
 
-  // A menu that stays open until its button is pressed again is a trap: Escape and a click elsewhere close it.
-  useEffect(() => {
-    const onDown = (e: Event) => {
-      const el = menu.current;
-      if (el?.open && !el.contains(e.target as Node)) el.open = false;
-    };
-    const onKey = (e: KeyboardEvent) => {
-      const el = menu.current;
-      if (e.key !== 'Escape' || !el?.open) return;
-      el.open = false;
-      el.querySelector('summary')?.focus();
-    };
-    document.addEventListener('pointerdown', onDown);
-    document.addEventListener('keydown', onKey);
-    return () => {
-      document.removeEventListener('pointerdown', onDown);
-      document.removeEventListener('keydown', onKey);
-    };
-  }, []);
+  useMenuDismiss(menu);
 
   const pick = (action: () => void) => () => {
     if (menu.current) menu.current.open = false;
