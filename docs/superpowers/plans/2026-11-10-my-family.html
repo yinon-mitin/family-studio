@@ -1,0 +1,309 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>План 2: «Моя семья»</title>
+<link rel="stylesheet" href="../doc.css">
+</head>
+<body>
+<main>
+<h1>Инструмент «Моя семья»: план реализации</h1>
+<p class="note"><b>Для исполнителей:</b> обязательный подскилл — <code>superpowers:subagent-driven-development</code> (рекомендуется) или <code>superpowers:executing-plans</code>. Шаги отмечаются галочками. Начинать только после слияния плана 1 (оболочка). Ветка <code>feat/my-family</code>.</p>
+
+<p><b>Цель.</b> Второй инструмент сайта: клиент раскладывает цветные фигуры на листе А4, который подстраивается под экран, и скачивает результат.</p>
+<p><b>Архитектура.</b> Папка <code>src/tools/my-family</code>: чистая модель и действия над документом, чистая отрисовка в SVG-строку (одна функция для экрана и экспортов, как <code>renderCrest</code>), собственное хранилище поверх нового общего слоя истории <code>src/core</code>, простой интерфейс на Preact. Лист рисуется в SVG с <code>viewBox</code>, поэтому подгонка под экран делается браузером, а положения хранятся в условных единицах листа.</p>
+<p><b>Стек.</b> Vite, TypeScript (strict), Preact, Vitest, Playwright, <code>jspdf</code> и <code>svg2pdf.js</code> (уже есть). Новых зависимостей нет.</p>
+<p><b>Спецификация.</b> <a href="../specs/2026-11-10-family-studio-design.html">docs/superpowers/specs/2026-11-10-family-studio-design.html</a></p>
+
+<h2>Общие ограничения</h2>
+<ul>
+<li>Лист: <code>SHEET_SHORT = 1000</code>, <code>SHEET_LONG = 1414</code> условных единиц. Портрет 1000×1414, ландшафт 1414×1000.</li>
+<li>Размер фигуры: <code>SIZE_MIN = 30</code>, <code>SIZE_MAX = 260</code>, по умолчанию <code>100</code>. Не более <code>200</code> фигур в документе.</li>
+<li>Цвета, 13 штук, включая чёрный <code>#1c1c24</code> и белый <code>#ffffff</code>: <code>#e53935 #fb8c00 #fdd835 #43a047 #00897b #42a5f5 #1e53a4 #8e24aa #ec407a #6d4c41 #9e9e9e #1c1c24 #ffffff</code>. Контур фигуры всегда <code>#1c1c24</code>, толщина 3.</li>
+<li>Фактуры: <code>stripes checks dots waves lozenges</code>. Геометрия берётся из <code>patternGeometry</code> (<code>src/render/patterns.ts</code>), цвет фактуры — <code>contrast(color)</code> из <code>src/model/colors.ts</code>.</li>
+<li>В SVG только контуры, сплошные заливки и <code>clipPath</code>. Запрещены <code>&lt;pattern&gt;</code>, <code>&lt;filter&gt;</code>, <code>&lt;mask&gt;</code>, <code>&lt;text&gt;</code>, градиенты.</li>
+<li>Ключ автосохранения <code>family-studio:my-family:autosave:v1</code>, метка файла <code>family-studio-my-family</code>. Хранилище недоступно (приватный режим) — приложение всё равно работает.</li>
+<li>Словари ru/en с одинаковыми ключами, английский без кириллицы. Внешних запросов нет.</li>
+<li>Интерфейс для самостоятельной работы клиента: без терминов, без подсказок для ведущего, только кнопки и поля.</li>
+<li>RED-GREEN в каждой задаче; коммит включает строку в <code>CHANGELOG.md</code>.</li>
+</ul>
+
+<h2>Фокус проверки</h2>
+<ul>
+<li>Повреждённый или враждебный JSON и автосохранение (NaN, Infinity, 10 000 фигур, неизвестный вид, координаты за листом): файл либо отклоняется, либо приводится к допустимому виду (Задача 4).</li>
+<li>Хранилище браузера недоступно (бросает исключение): ни автосохранение, ни восстановление не роняют приложение (Задача 4).</li>
+<li>Перетаскивание за край листа и прерванный жест (<code>pointercancel</code>): фигура остаётся внутри листа и не «залипает» (Задача 7).</li>
+<li>Полностью закрытую фигуру можно выбрать (Задача 3, 7).</li>
+<li>PDF в ориентации листа и размера А4, PNG и SVG совпадают с экраном по составу (Задача 6).</li>
+<li>На телефоне лист вертикальный, на широком экране горизонтальный; при повороте окна лист не пересоздаётся (Задача 7).</li>
+</ul>
+
+<h2>Структура файлов</h2>
+<table>
+<tr><th>Файл</th><th>Назначение</th></tr>
+<tr><td><code>src/core/docStore.ts</code>, <code>useDocStore.ts</code></td><td>Универсальное хранилище документа с историей.</td></tr>
+<tr><td><code>src/tools/my-family/sheet.ts</code></td><td>Лист: размеры и ориентация.</td></tr>
+<tr><td><code>src/tools/my-family/model.ts</code></td><td>Типы, геометрия фигур, чистые действия над документом.</td></tr>
+<tr><td><code>src/tools/my-family/persist.ts</code></td><td>Проверка данных, файл, автосохранение.</td></tr>
+<tr><td><code>src/tools/my-family/render.ts</code></td><td><code>renderSheet</code> — SVG-строка.</td></tr>
+<tr><td><code>src/tools/my-family/exports.ts</code></td><td>SVG, PNG, PDF листа.</td></tr>
+<tr><td><code>src/tools/my-family/store.ts</code></td><td>Хранилище инструмента и действия с историей.</td></tr>
+<tr><td><code>src/tools/my-family/MyFamily.tsx</code>, <code>Sheet.tsx</code>, <code>Panel.tsx</code>, <code>FileMenu.tsx</code></td><td>Интерфейс.</td></tr>
+<tr><td><code>src/export/raster.ts</code></td><td>Общий перевод SVG-строки в PNG (выносится из <code>png.ts</code>).</td></tr>
+<tr><td><code>tests/core-docstore.test.ts</code>, <code>tests/mf-*.test.ts</code>, <code>e2e/my-family.spec.ts</code></td><td>Тесты.</td></tr>
+</table>
+
+<h2>Ключи словарей (ru / en)</h2>
+<p>Новые: <code>tool.my-family</code> «Моя семья» / «My Family»; <code>mf.sheet</code> «Лист А4» / «A4 sheet»; <code>mf.panel</code> «Свойства фигуры» / «Shape properties»; <code>mf.hint</code> «Выберите фигуру, чтобы положить её на лист» / «Pick a shape to put it on the sheet»; <code>mf.add</code> «Добавить фигуру» / «Add a shape»; <code>mf.shape.circle|square|rect|triangle</code> «Круг|Квадрат|Прямоугольник|Треугольник» / «Circle|Square|Rectangle|Triangle»; <code>mf.color</code> «Цвет» / «Color»; <code>mf.size</code> «Размер» / «Size»; <code>mf.rotation</code> «Поворот» / «Rotation»; <code>mf.texture</code> «Фактура» / «Texture»; <code>mf.texture.none|stripes|checks|dots|waves|lozenges</code> «Без фактуры|Штриховка|Клетка|Точки|Волны|Ромбы» / «Plain|Hatching|Check|Dots|Waves|Lozenges»; <code>mf.up|down|front|back</code> «Выше|Ниже|На передний план|На задний план» / «Up|Down|To front|To back»; <code>mf.prev|next</code> «Предыдущая фигура|Следующая фигура» / «Previous shape|Next shape»; <code>mf.duplicate|delete</code> «Дублировать|Удалить» / «Duplicate|Delete»; <code>mf.new</code> «Новый рисунок» / «New drawing»; <code>mf.newAsk</code> «Начать новый рисунок? Текущий будет заменён.» / «Start a new drawing? The current one will be replaced.»; <code>mf.file</code> «moya-semya» / «my-family».</p>
+<p>Переиспользуются существующие ключи герба: <code>header.undo|redo|undoTitle|redoTitle|save|open|download</code>, <code>file.saved|tooLarge|notProject|wipeConfirm</code>, <code>export.title|format|png|pdf|svg|run|cancel|busy|done|failed|empty</code>.</p>
+
+<div class="task">
+<h3>Задача 1: общий слой истории</h3>
+<p class="meta"><b>Создать:</b> <code>src/core/docStore.ts</code>, <code>src/core/useDocStore.ts</code>. <b>Тест:</b> <code>tests/core-docstore.test.ts</code>.</p>
+<p><b>Производит:</b></p>
+<pre><code>export interface DocSnapshot&lt;D&gt; { doc: D; past: D[]; future: D[] }
+export interface DocStore&lt;D&gt; {
+  get(): DocSnapshot&lt;D&gt;;
+  subscribe(listener: () =&gt; void): () =&gt; void;   // возвращает отписку
+  commit(fn: (doc: D) =&gt; D, key?: string): void;  // fn вернул тот же объект → ничего не меняется
+  undo(): void;
+  redo(): void;
+  replace(doc: D): void;                          // новый документ, история очищается
+}
+export function createDocStore&lt;D&gt;(opts: {
+  initial: D; limit?: number /* 100 */; mergeMs?: number /* 1000 */;
+  now?: () =&gt; number; onChange?: (doc: D) =&gt; void;
+}): DocStore&lt;D&gt;;
+// useDocStore.ts
+export function useDocStore&lt;D, T&gt;(store: DocStore&lt;D&gt;, select: (s: DocSnapshot&lt;D&gt;) =&gt; T): T;</code></pre>
+<ul class="steps">
+<li><input type="checkbox"> <b>Шаг 1. Тест (RED).</b> Документ — число. Проверки: <code>commit(d=&gt;d+1)</code> меняет документ, <code>past</code> равен <code>[0]</code>; <code>commit(d=&gt;d)</code> не добавляет шаг и не вызывает слушателей; <code>undo</code> возвращает <code>0</code>, <code>future</code> равен <code>[1]</code>, <code>redo</code> возвращает <code>1</code>; новый <code>commit</code> после <code>undo</code> очищает <code>future</code>; два <code>commit</code> с одним <code>key</code> за 500 мс (подменённый <code>now</code>) дают один шаг отмены, а через 1500 мс — два; при <code>limit: 3</code> после пяти изменений <code>past.length === 3</code>; <code>replace(7)</code> очищает обе истории; <code>onChange</code> вызывается после <code>commit</code>, <code>undo</code>, <code>redo</code> и <code>replace</code> с новым документом; <code>undo</code> и <code>redo</code> на пустой истории ничего не делают; отписка прекращает уведомления.</li>
+<li><input type="checkbox"> <b>Шаг 2.</b> <code>npx vitest run tests/core-docstore.test.ts</code> — FAIL.</li>
+<li><input type="checkbox"> <b>Шаг 3.</b> Реализовать по образцу <code>commit/undo/redo</code> из <code>src/model/store.ts</code> (слияние по ключу, ограничение длины), но без привязки к документу герба. <code>useDocStore</code> — по образцу <code>useStore</code> оттуда же.</li>
+<li><input type="checkbox"> <b>Шаг 4.</b> Запустить тест — PASS.</li>
+<li><input type="checkbox"> <b>Шаг 5.</b> Коммит: <code>feat(core): generic document store with history</code>.</li>
+</ul>
+</div>
+
+<div class="task">
+<h3>Задача 2: лист А4</h3>
+<p class="meta"><b>Создать:</b> <code>src/tools/my-family/sheet.ts</code>. <b>Тест:</b> <code>tests/mf-sheet.test.ts</code>.</p>
+<p><b>Производит:</b></p>
+<pre><code>export type Orientation = 'portrait' | 'landscape';
+export const SHEET_SHORT = 1000, SHEET_LONG = 1414;
+export function sheetSize(o: Orientation): { w: number; h: number };
+export function pickOrientation(viewW: number, viewH: number): Orientation;</code></pre>
+<ul class="steps">
+<li><input type="checkbox"> <b>Шаг 1. Тест (RED).</b> <code>sheetSize('portrait')</code> равно <code>{w:1000,h:1414}</code>, <code>sheetSize('landscape')</code> равно <code>{w:1414,h:1000}</code>. <code>pickOrientation(1280,720)</code> — landscape; <code>(390,844)</code> — portrait; <code>(800,800)</code> — portrait (квадрат считается вертикальным); <code>(0,0)</code> и <code>(NaN,NaN)</code> — portrait.</li>
+<li><input type="checkbox"> <b>Шаг 2.</b> Запустить — FAIL.</li>
+<li><input type="checkbox"> <b>Шаг 3.</b> Реализовать.</li>
+<li><input type="checkbox"> <b>Шаг 4.</b> Запустить — PASS.</li>
+<li><input type="checkbox"> <b>Шаг 5.</b> Коммит: <code>feat(my-family): sheet geometry</code>.</li>
+</ul>
+</div>
+
+<div class="task">
+<h3>Задача 3: модель и действия</h3>
+<p class="meta"><b>Создать:</b> <code>src/tools/my-family/model.ts</code>. <b>Тест:</b> <code>tests/mf-model.test.ts</code>.</p>
+<p><b>Потребляет:</b> <code>Orientation</code>, <code>sheetSize</code>. <b>Производит:</b></p>
+<pre><code>export type FigureKind = 'circle' | 'square' | 'rect' | 'triangle';
+export type TextureId = 'stripes' | 'checks' | 'dots' | 'waves' | 'lozenges';
+export interface Figure {
+  id: string; kind: FigureKind; x: number; y: number;      // центр, в единицах листа
+  size: number; rotation: number;                           // rotation в градусах, [0, 360)
+  color: string; texture: TextureId | null;
+}
+export interface MyFamilyDoc { version: 1; orientation: Orientation; figures: Figure[] }  // порядок массива = порядок слоёв, последний сверху
+export const SIZE_MIN = 30, SIZE_MAX = 260, SIZE_DEFAULT = 100, MAX_FIGURES = 200;
+export const COLORS: readonly string[];       // 13 значений из общих ограничений
+export const TEXTURES: readonly TextureId[];
+
+export function newDoc(o: Orientation): MyFamilyDoc;
+export function figureOutline(f: Figure): [number, number][];   // вершины после поворота и сдвига; для circle — 32 точки
+export function figureBounds(f: Figure): { minX: number; minY: number; maxX: number; maxY: number };
+export function clampToSheet(f: Figure, o: Orientation): Figure; // сдвигает центр так, чтобы ограничивающий прямоугольник лёг в лист
+export function addFigure(doc: MyFamilyDoc, kind: FigureKind, opts?: { color?: string; size?: number; texture?: TextureId | null }): { doc: MyFamilyDoc; id: string };
+export function updateFigure(doc: MyFamilyDoc, id: string, patch: Partial&lt;Omit&lt;Figure, 'id' | 'kind'&gt;&gt;): MyFamilyDoc;
+export function deleteFigure(doc: MyFamilyDoc, id: string): MyFamilyDoc;
+export function duplicateFigure(doc: MyFamilyDoc, id: string): { doc: MyFamilyDoc; id: string };
+export function reorder(doc: MyFamilyDoc, id: string, dir: 'up' | 'down' | 'top' | 'bottom'): MyFamilyDoc;
+export function neighbour(doc: MyFamilyDoc, id: string | null, dir: 1 | -1): string | null;</code></pre>
+<p><b>Геометрия при <code>size = s</code>, <code>rotation = 0</code>:</b> круг диаметром <code>s</code>; квадрат со стороной <code>0.9·s</code>; прямоугольник шириной <code>s</code> и высотой <code>0.55·s</code>; треугольник равнобедренный с основанием <code>s</code> и высотой <code>0.87·s</code> (вершина <code>(0, −0.435·s)</code>, основание на <code>y = +0.435·s</code>).</p>
+<ul class="steps">
+<li><input type="checkbox"> <b>Шаг 1. Тест (RED).</b> Точные значения:
+<pre><code>figureBounds(circle size 100 at (500,500))            → {minX:450,minY:450,maxX:550,maxY:550}
+figureBounds(rect size 100 at (500,500), rotation 0)  → {minX:450,maxX:550,minY:472.5,maxY:527.5}
+figureBounds(rect size 100 at (500,500), rotation 90) → {minX:472.5,maxX:527.5,minY:450,maxY:550}   // toBeCloseTo
+figureBounds(triangle size 100 at (500,500))          → minY ≈ 456.5, maxY ≈ 543.5, minX 450, maxX 550
+clampToSheet(circle size 100 at (-50, 2000), 'portrait') → x = 50, y = 1364
+clampToSheet(circle size 100 at (500,500), 'portrait')   → тот же объект по значению
+addFigure(newDoc('portrait'),'circle').doc.figures[0] → x 500, y 707, size 100, rotation 0, color '#42a5f5', texture null
+вторая добавленная фигура → (540, 747), третья → (460, 667), четвёртая → (580, 787), пятая → (420, 627), шестая → снова (500, 707)
+id всех фигур различны (добавить 50 штук)
+addFigure при 200 фигурах → документ не меняется (doc === исходный), id пустая строка
+updateFigure(doc,id,{size:9999}).size === 260; {size:1} → 30; {rotation:-90} → 270; {rotation:450} → 90; {x:-999} → центр сдвинут внутрь листа
+updateFigure с неизвестным id → тот же объект (===)
+updateFigure(doc,id,{color:'red'}) → цвет не меняется (допустимы только значения из COLORS), та же ссылка
+reorder [a,b,c]: a up → [b,a,c]; a top → [b,c,a]; c down → [a,c,b]; c bottom → [c,a,b]; c up → тот же объект (===)
+neighbour([a,b,c], 'c', 1) === 'a'; ('a', -1) === 'c'; (null, 1) === 'a'; (null, -1) === 'c'; ('zzz', 1) === 'a'; пустой документ → null
+duplicateFigure: копия сразу над оригиналом (индекс+1), сдвиг (+30,+30), новый id, остальное то же; у фигуры у края копия остаётся внутри листа
+deleteFigure убирает фигуру; неизвестный id → тот же объект</code></pre></li>
+<li><input type="checkbox"> <b>Шаг 2.</b> Запустить — FAIL.</li>
+<li><input type="checkbox"> <b>Шаг 3.</b> Реализовать. Идентификатор — случайная строка base36 длиной 8, повторная генерация при совпадении. Смещения новых фигур — по списку <code>[0, 40, -40, 80, -80][n % 5]</code>, одинаковые по x и y, где <code>n</code> — число фигур в документе.</li>
+<li><input type="checkbox"> <b>Шаг 4.</b> Запустить — PASS.</li>
+<li><input type="checkbox"> <b>Шаг 5.</b> Коммит: <code>feat(my-family): model and pure actions</code>.</li>
+</ul>
+</div>
+
+<div class="task">
+<h3>Задача 4: сохранение и проверка данных</h3>
+<p class="meta"><b>Создать:</b> <code>src/tools/my-family/persist.ts</code>. <b>Тест:</b> <code>tests/mf-persist.test.ts</code>.</p>
+<p><b>Потребляет:</b> <code>MyFamilyDoc</code>, <code>clampToSheet</code>, <code>COLORS</code>, <code>TEXTURES</code>. <b>Производит:</b></p>
+<pre><code>export const STORAGE_KEY = 'family-studio:my-family:autosave:v1';
+export const FILE_APP = 'family-studio-my-family';
+type Store = Pick&lt;Storage, 'getItem' | 'setItem' | 'removeItem'&gt;;
+export function sanitizeDoc(raw: unknown): MyFamilyDoc | null;          // null, если это вообще не документ
+export function toFile(doc: MyFamilyDoc): string;                       // JSON { app, version:1, doc }
+export function fromFile(text: string): MyFamilyDoc | null;             // null при неверном JSON или метке
+export function loadAuto(store?: Store): MyFamilyDoc | null;            // store по умолчанию globalThis.localStorage
+export function saveAuto(doc: MyFamilyDoc, store?: Store): void;
+export function clearAuto(store?: Store): void;</code></pre>
+<ul class="steps">
+<li><input type="checkbox"> <b>Шаг 1. Тест (RED).</b>
+<ul>
+<li>Круговой обход: <code>fromFile(toFile(doc))</code> равно <code>doc</code> для документа с тремя фигурами разных видов и фактур.</li>
+<li>Неверная метка (<code>{"app":"family-crest",…}</code>), невалидный JSON, пустая строка, <code>"null"</code> → <code>null</code>.</li>
+<li>Фигуры с неизвестным <code>kind</code> отбрасываются; <code>size: NaN</code> и <code>Infinity</code> заменяются на 100; <code>size: 5</code> → 30; <code>color: 'red'</code> → <code>#42a5f5</code>; <code>texture: 'ermine'</code> → <code>null</code>; <code>rotation: 725</code> → 5; <code>x: 1e9</code> → фигура внутри листа.</li>
+<li>Повторяющиеся и нестроковые <code>id</code> заменяются уникальными. Массив из 10 000 фигур обрезается до 200. Неизвестная ориентация → <code>portrait</code>.</li>
+<li>Автосохранение: с поддельным хранилищем-объектом <code>saveAuto</code>, затем <code>loadAuto</code> возвращают тот же документ; <code>clearAuto</code> удаляет ключ; хранилище, у которого все методы бросают исключение, не роняет ни одну из трёх функций (<code>loadAuto</code> возвращает <code>null</code>); повреждённая запись в хранилище → <code>null</code>.</li>
+</ul></li>
+<li><input type="checkbox"> <b>Шаг 2.</b> Запустить — FAIL.</li>
+<li><input type="checkbox"> <b>Шаг 3.</b> Реализовать по образцу <code>src/model/serialize.ts</code> (вспомогательные <code>num</code>, <code>oneOf</code> и т. п. можно скопировать локально, они короткие).</li>
+<li><input type="checkbox"> <b>Шаг 4.</b> Запустить — PASS.</li>
+<li><input type="checkbox"> <b>Шаг 5.</b> Коммит: <code>feat(my-family): validated save, open and autosave</code>.</li>
+</ul>
+</div>
+
+<div class="task">
+<h3>Задача 5: отрисовка листа</h3>
+<p class="meta"><b>Создать:</b> <code>src/tools/my-family/render.ts</code>. <b>Тест:</b> <code>tests/mf-render.test.ts</code>.</p>
+<p><b>Потребляет:</b> <code>MyFamilyDoc</code>, <code>figureOutline</code>, <code>sheetSize</code>, <code>patternGeometry</code>, <code>contrast</code>. <b>Производит:</b></p>
+<pre><code>export interface RenderOpts {
+  width?: number;                 // ширина в пикселях атрибута width; высота по пропорции
+  prefix?: string;                // префикс id для clipPath, чтобы на странице не было совпадений
+  frame?: boolean;                // лист с тонкой рамкой (для экрана); в экспорте false
+  selected?: string | null;       // у выбранной фигуры — группа с data-selected="true" и пунктирное кольцо (только для экрана)
+}
+export function renderSheet(doc: MyFamilyDoc, opts?: RenderOpts): string;  // &lt;svg xmlns viewBox="0 0 W H"&gt;; каждая фигура в &lt;g data-fig="id"&gt;</code></pre>
+<ul class="steps">
+<li><input type="checkbox"> <b>Шаг 1. Тест (RED).</b> Для документа из трёх фигур (одна с фактурой <code>stripes</code>): строка содержит <code>viewBox="0 0 1000 1414"</code> (портрет) и <code>viewBox="0 0 1414 1000"</code> (ландшафт); ровно три атрибута <code>data-fig=</code>, в порядке слоёв; один <code>&lt;clipPath</code> на каждую фигуру с фактурой; не содержит <code>&lt;pattern</code>, <code>&lt;text</code>, <code>&lt;filter</code>, <code>&lt;mask</code>, <code>Gradient</code>; белый фон листа <code>fill="#ffffff"</code>; при <code>prefix:'a-'</code> и <code>'b-'</code> id клипов не пересекаются; при <code>selected</code> один раз встречается <code>data-selected="true"</code>, без него — ни разу; при <code>frame:false</code> нет атрибута <code>data-frame</code>, при <code>frame:true</code> есть; пустой документ даёт корректный лист без фигур.</li>
+<li><input type="checkbox"> <b>Шаг 2.</b> Запустить — FAIL.</li>
+<li><input type="checkbox"> <b>Шаг 3.</b> Реализовать. Каждая фигура — <code>&lt;g data-fig transform="translate(x y) rotate(r)"&gt;</code>; форма рисуется контуром <code>path</code> (круг — двумя дугами) с заливкой цветом и обводкой <code>#1c1c24</code>, толщина 3. Фактура: <code>clipPath</code> той же формы, внутри <code>path</code> из <code>patternGeometry</code> с масштабом <code>size / 360</code>, цвет <code>contrast(color)</code>; если у геометрии есть <code>stroke</code>, рисовать линией этой толщины (<code>fill="none"</code>), иначе заливкой. Прозрачная область под фигурой для нажатия не нужна, нажатия ловит сама форма.</li>
+<li><input type="checkbox"> <b>Шаг 4.</b> Запустить — PASS.</li>
+<li><input type="checkbox"> <b>Шаг 5.</b> Коммит: <code>feat(my-family): render the sheet to SVG</code>.</li>
+</ul>
+</div>
+
+<div class="task">
+<h3>Задача 6: экспорт</h3>
+<p class="meta"><b>Создать:</b> <code>src/export/raster.ts</code>, <code>src/tools/my-family/exports.ts</code>. <b>Изменить:</b> <code>src/export/png.ts</code>. <b>Тест:</b> <code>e2e/my-family.spec.ts</code> (проверка в Задаче 7, здесь только существующий e2e герба и юнит-проверка имён).</p>
+<p><b>Производит:</b></p>
+<pre><code>// raster.ts — вынесено из png.ts
+export async function svgToPng(svg: string, width: number, height: number): Promise&lt;Blob&gt;;
+// exports.ts
+export function exportSvg(doc: MyFamilyDoc): Blob;               // renderSheet без рамки, XML-заголовок
+export async function exportPng(doc: MyFamilyDoc): Promise&lt;Blob&gt;; // короткая сторона 1240 px
+export async function exportPdf(doc: MyFamilyDoc): Promise&lt;Blob&gt;; // A4 в ориентации листа, поля 20 pt, jspdf + svg2pdf
+export function fileName(ext: string, suffix?: string): string;  // `${t('mf.file')}${suffix ?? ''}.${ext}`</code></pre>
+<ul class="steps">
+<li><input type="checkbox"> <b>Шаг 1.</b> Вынести перевод SVG в PNG из <code>exportPng</code> герба в <code>svgToPng</code>; <code>exportPng</code> герба вызывает его. Запустить существующий e2e «экспорт в SVG, PNG и PDF» (<code>npx playwright test -g "экспорт" --project=desktop-chromium</code>) — PASS, поведение герба не изменилось.</li>
+<li><input type="checkbox"> <b>Шаг 2.</b> Реализовать <code>exports.ts</code>. PDF: <code>new jsPDF({unit:'pt', format:'a4', orientation: doc.orientation})</code>, <code>svg2pdf</code> с <code>renderSheet</code> в область страницы без полей 20 pt; настройка свойств документа как в <code>src/export/pdf.ts</code>.</li>
+<li><input type="checkbox"> <b>Шаг 3.</b> Коммит: <code>feat(my-family): export to SVG, PNG and PDF</code>. Проверки результатов — e2e в Задаче 9.</li>
+</ul>
+</div>
+
+<div class="task">
+<h3>Задача 7: хранилище и лист на экране</h3>
+<p class="meta"><b>Создать:</b> <code>src/tools/my-family/store.ts</code>, <code>MyFamily.tsx</code>, <code>Sheet.tsx</code>, <code>Panel.tsx</code> (пока только выбор фигуры). <b>Изменить:</b> <code>src/shell/tools.ts</code>, <code>src/i18n/ru.ts</code>, <code>src/i18n/en.ts</code>, <code>src/ui/styles.css</code>. <b>Тест:</b> <code>e2e/my-family.spec.ts</code>.</p>
+<p><b>Производит:</b></p>
+<pre><code>// store.ts
+export const store: DocStore&lt;MyFamilyDoc&gt;;           // initial: loadAuto() ?? newDoc(pickOrientation(innerWidth, innerHeight)); onChange: saveAuto (с задержкой 400 мс)
+export function getUi(): { selected: string | null; toast: string | null };
+export function useUi&lt;T&gt;(select: (u: ReturnType&lt;typeof getUi&gt;) =&gt; T): T;
+export function select(id: string | null): void;
+export function toast(message: string): void;   // исчезает через 2800 мс
+export function add(kind: FigureKind): void;          // addFigure + выбор новой
+export function patch(id: string, p: Parameters&lt;typeof updateFigure&gt;[2], key?: string): void;
+export function remove(id: string): void; export function duplicate(id: string): void;
+export function move(id: string, dir: 'up'|'down'|'top'|'bottom'): void;
+export function step(dir: 1 | -1): void;              // выбор соседней фигуры через neighbour
+export function newDrawing(): void;                   // newDoc(pickOrientation(...)), история очищается
+export function clearData(): void;                    // clearAuto + replace(newDoc(...)) + выбор сброшен
+// Sheet.tsx: &lt;svg class="mf-sheet"&gt; с innerHTML из renderSheet(doc, {frame:true, selected, prefix:'ed-'}), touch-action:none
+// tools.ts: { id:'my-family', title:()=&gt;t('tool.my-family'), Component: MyFamily, clearData }</code></pre>
+<ul class="steps">
+<li><input type="checkbox"> <b>Шаг 1. Тест (RED).</b> <code>e2e/my-family.spec.ts</code>, адрес <code>./?only=my-family</code>, ключ автосохранения из общих ограничений:
+<ul>
+<li><code>добавление фигур и подсказка</code> — пустой лист показывает <code>mf.hint</code>; нажатие «Круг» и «Квадрат» даёт <code>[data-fig]</code> ×2 и скрывает подсказку.</li>
+<li><code>ориентация листа по устройству</code> — на desktop <code>viewBox</code> листа <code>0 0 1414 1000</code>, на mobile <code>0 0 1000 1414</code> (<code>isMobile</code> как в <code>app.spec.ts</code>). После «Новый рисунок» (принять confirm) ориентация выбирается заново; после <code>page.setViewportSize</code> с другой ориентацией лист уже созданного рисунка не меняется.</li>
+<li><code>фигура не выходит за лист</code> — перетащить фигуру мышью далеко за правый нижний край окна, затем в автосохранении (после 700 мс) <code>x + size/2 &lt;= ширина листа</code> и <code>y + size/2 &lt;= высота</code>; то же при <code>pointercancel</code>, отправленном через <code>dispatchEvent</code> посреди жеста: следующее движение мыши фигуру не двигает.</li>
+<li><code>выбор и перекрытие</code> — две фигуры в одной точке (вторая добавляется со сдвигом 40); кнопка «Следующая фигура» последовательно выбирает обе по кругу (<code>data-selected="true"</code> у соответствующей группы); большой квадрат поверх малого круга: круг выбирается кнопкой.</li>
+<li><code>восстановление после перезагрузки</code> — после <code>page.reload()</code> фигуры, их порядок и ориентация листа на месте.</li>
+</ul></li>
+<li><input type="checkbox"> <b>Шаг 2.</b> Запустить — FAIL.</li>
+<li><input type="checkbox"> <b>Шаг 3.</b> Реализовать <code>store.ts</code> на <code>createDocStore</code>, <code>Sheet.tsx</code>: перетаскивание через Pointer Events, <code>setPointerCapture</code>, точка листа считается через <code>svg.getScreenCTM().inverse()</code>, смещение захвата сохраняется, движение пишется через <code>patch(id, {x, y}, 'drag:'+id)</code> (границы обеспечивает <code>updateFigure</code>), <code>pointerup</code> и <code>pointercancel</code> завершают жест, <code>lostpointercapture</code> тоже. Нажатие мимо фигур снимает выбор. Стрелки сдвигают выбранную фигуру на 4 единицы (<code>Shift</code> — на 20), <code>Delete</code> удаляет, <code>Ctrl+Z</code>/<code>Ctrl+Y</code> — отмена и повтор; клавиши игнорируются в полях ввода.</li>
+<li><input type="checkbox"> <b>Шаг 4.</b> <code>MyFamily.tsx</code>: верхняя панель (отмена, повтор), лист по центру (<code>width:100%; height:100%</code>, <code>preserveAspectRatio</code> по умолчанию), под ним или сбоку панель с четырьмя кнопками фигур, кнопки «Предыдущая/Следующая фигура». Кнопки добавляют фигуру с цветом по умолчанию. Регистрация в <code>tools.ts</code> перед гербом (порядок вкладок задаёт <code>TOOL_IDS</code>).</li>
+<li><input type="checkbox"> <b>Шаг 5.</b> Добавить ключи словарей, запустить <code>npm run typecheck &amp;&amp; npm test &amp;&amp; npm run build &amp;&amp; npx playwright test --project=desktop-chromium --project=mobile-chromium</code>. Ожидается PASS.</li>
+<li><input type="checkbox"> <b>Шаг 6.</b> Коммит: <code>feat(my-family): sheet with draggable shapes</code>.</li>
+</ul>
+</div>
+
+<div class="task">
+<h3>Задача 8: свойства фигуры</h3>
+<p class="meta"><b>Изменить:</b> <code>src/tools/my-family/Panel.tsx</code>, <code>src/ui/styles.css</code>. <b>Тест:</b> <code>e2e/my-family.spec.ts</code>.</p>
+<ul class="steps">
+<li><input type="checkbox"> <b>Шаг 1. Тест (RED).</b> Выбрать фигуру: видны переключатели цвета (13 штук), ползунок «Размер» (30–260), ползунок «Поворот» (0–345 с шагом 15), выбор фактуры (6 вариантов с «Без фактуры»), кнопки «Выше», «Ниже», «На передний план», «На задний план», «Дублировать», «Удалить». Проверки по автосохранению: смена цвета на второй цвет палитры; ползунок размера на 200; фактура «Клетка»; поворот 45; «Дублировать» даёт вторую фигуру; «На задний план» меняет порядок в DOM и в сохранении; «Выше» у верхней фигуры ничего не меняет; «Удалить» убирает; «Отменить» возвращает. Без выбранной фигуры панель свойств скрыта или неактивна.</li>
+<li><input type="checkbox"> <b>Шаг 2.</b> Запустить — FAIL.</li>
+<li><input type="checkbox"> <b>Шаг 3.</b> Реализовать панель на готовых <code>patch</code>, <code>duplicate</code>, <code>remove</code>, <code>move</code>. Для слайдеров использовать ключи слияния истории (<code>'size:'+id</code>, <code>'rot:'+id</code>). На телефоне панель снизу, на широком экране справа; стили в духе <code>styles.css</code> (<code>.field</code>, <code>.btn</code>, <code>.segmented</code>).</li>
+<li><input type="checkbox"> <b>Шаг 4.</b> Запустить — PASS (desktop и mobile). Коммит: <code>feat(my-family): shape properties panel</code>.</li>
+</ul>
+</div>
+
+<div class="task">
+<h3>Задача 9: файл и экспорт на экране</h3>
+<p class="meta"><b>Создать:</b> <code>src/tools/my-family/FileMenu.tsx</code>. <b>Изменить:</b> <code>MyFamily.tsx</code>. <b>Тест:</b> <code>e2e/my-family.spec.ts</code>.</p>
+<ul class="steps">
+<li><input type="checkbox"> <b>Шаг 1. Тест (RED).</b>
+<ul>
+<li><code>экспорт PNG, SVG, PDF</code> — три фигуры, одна с фактурой; кнопка «Скачать» открывает диалог (общий <code>Modal</code> из <code>src/ui/Modal.tsx</code>); скачивание SVG: файл <code>moya-semya.svg</code>, в тексте нет <code>&lt;pattern</code> и <code>&lt;text</code>, три <code>data-fig</code>; PNG: подпись PNG и размеры 1240×1754 (портрет) или 1754×1240 (ландшафт), читать заголовок IHDR; PDF: <code>pdfinfo</code> показывает <code>Pages: 1</code> и размер страницы <code>595.276 x 841.89</code> для портрета и <code>841.89 x 595.276</code> для ландшафта (как в существующем тесте герба).</li>
+<li><code>пустой лист не экспортируется</code> — кнопка «Скачать» в диалоге неактивна и показан <code>export.empty</code>.</li>
+<li><code>сохранить и открыть JSON</code> — сохранить файл, начать новый рисунок, открыть файл через <code>setInputFiles</code>: фигуры и ориентация восстановлены. Файл от герба (<code>{"app":"family-crest"…}</code>) отклоняется с сообщением <code>file.notProject</code>. Файл больше 5 МБ отклоняется с <code>file.tooLarge</code>.</li>
+<li><code>новый рисунок спрашивает подтверждение</code> — отказ ничего не меняет; согласие очищает лист, «Отменить» возвращает прежний.</li>
+</ul></li>
+<li><input type="checkbox"> <b>Шаг 2.</b> Запустить — FAIL.</li>
+<li><input type="checkbox"> <b>Шаг 3.</b> Реализовать меню (по образцу <code>Header.tsx</code> герба: <code>&lt;details class="menu"&gt;</code>) с пунктами «Новый рисунок», «Сохранить», «Открыть» и кнопку «Скачать», открывающую диалог с выбором формата (<code>segmented</code>) без дополнительных настроек. Использовать <code>download</code> из <code>src/export/download.ts</code>.</li>
+<li><input type="checkbox"> <b>Шаг 4.</b> Запустить — PASS. Коммит: <code>feat(my-family): file menu and export dialog</code>.</li>
+</ul>
+</div>
+
+<div class="task">
+<h3>Задача 10: вкладки, стирание и документация</h3>
+<p class="meta"><b>Изменить:</b> <code>e2e/shell.spec.ts</code>, <code>e2e/my-family.spec.ts</code>, <code>README.md</code>, <code>CHANGELOG.md</code>.</p>
+<ul class="steps">
+<li><input type="checkbox"> <b>Шаг 1. Тест (RED).</b> В <code>e2e/shell.spec.ts</code>:
+<ul>
+<li><code>вкладки: две вкладки, переключение меняет адрес</code> — на <code>./</code> видна навигация «Инструменты» с двумя вкладками «Моя семья» и «Герб семьи», активна первая; нажатие на «Герб семьи» показывает стартовый экран герба, адрес содержит <code>tool=crest</code>, заголовок вкладки браузера «Герб семьи — Студия семьи»; <code>page.reload()</code> оставляет герб.</li>
+<li><code>?only=my-family</code> — вкладок нет, виден только лист.</li>
+<li><code>стереть все мои данные очищает оба инструмента</code> — создать фигуру в «Моей семье» и герб; «Данные → Стереть все мои данные» (принять); оба ключа автосохранения равны <code>null</code>.</li>
+<li><code>никаких внешних запросов</code> в «Моей семье» (как в тесте герба).</li>
+</ul></li>
+<li><input type="checkbox"> <b>Шаг 2.</b> Запустить — FAIL там, где чего-то не хватает (например, <code>clearData</code> ещё не в реестре). Исправить реализацию.</li>
+<li><input type="checkbox"> <b>Шаг 3.</b> README: описание инструмента, ссылки <code>?only=my-family</code>, структура <code>src/tools/my-family</code>. CHANGELOG: Added — инструмент «Моя семья».</li>
+<li><input type="checkbox"> <b>Шаг 4.</b> Полная проверка: <code>npm run typecheck &amp;&amp; npm test &amp;&amp; npm run build</code>, затем <code>npx playwright test --project=desktop-chromium --project=mobile-chromium</code>. Всё зелёное.</li>
+<li><input type="checkbox"> <b>Шаг 5.</b> Коммит: <code>feat(my-family): tabs, wipe and docs</code>. Pull request в <code>main</code>.</li>
+</ul>
+</div>
+</main>
+</body>
+</html>

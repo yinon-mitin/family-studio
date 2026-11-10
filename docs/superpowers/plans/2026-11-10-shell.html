@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>План 1: оболочка</title>
+<link rel="stylesheet" href="../doc.css">
+</head>
+<body>
+<main>
+<h1>Оболочка Family Studio: план реализации</h1>
+<p class="note"><b>Для исполнителей:</b> обязательный подскилл — <code>superpowers:subagent-driven-development</code> (рекомендуется) или <code>superpowers:executing-plans</code>. Шаги отмечаются галочками. Работать в отдельной ветке <code>feat/shell</code>.</p>
+
+<p><b>Цель.</b> Обернуть существующий конструктор герба в общую оболочку с реестром инструментов, адресной маршрутизацией и стиранием данных всех инструментов, чтобы на неё потом встали «Моя семья» и «Генограмма».</p>
+<p><b>Архитектура.</b> Новая папка <code>src/shell</code>: чистая функция выбора инструмента по адресу, реестр, маленькое хранилище текущего инструмента, компоненты <code>Shell</code> и <code>ToolBar</code>. Герб подключается как один из инструментов без изменения его внутренней логики; из его шапки и стартового экрана убирается переключатель языка (он переезжает в оболочку).</p>
+<p><b>Стек.</b> Vite, TypeScript (strict), Preact, Vitest, Playwright. Новых зависимостей нет.</p>
+<p><b>Спецификация.</b> <a href="../specs/2026-11-10-family-studio-design.html">docs/superpowers/specs/2026-11-10-family-studio-design.html</a></p>
+
+<h2>Общие ограничения</h2>
+<ul>
+<li>Node ≥ 20.19. Новых зависимостей не добавлять.</li>
+<li>Ключи <code>localStorage</code> (<code>family-crest:autosave:v1</code>, <code>family-crest:lang</code>), метка файла <code>family-crest</code> и префикс имён файлов не меняются.</li>
+<li>Словари <code>src/i18n/ru.ts</code> и <code>src/i18n/en.ts</code> содержат одинаковые ключи (проверяет <code>tests/i18n.test.ts</code>), английский текст без кириллицы.</li>
+<li>Название оболочки: <code>Студия семьи</code> / <code>Family Studio</code>. Название вкладки герба: <code>Герб семьи</code> / <code>Family crest</code>.</li>
+<li>Базовый путь сайта <code>/family-studio/</code>. Внешних запросов нет.</li>
+<li>Каждая задача идёт по RED-GREEN и заканчивается коммитом, в который входит строка в <code>CHANGELOG.md</code> (раздел Unreleased).</li>
+</ul>
+
+<h2>Фокус проверки</h2>
+<ul>
+<li>Неизвестное или повторяющееся значение <code>?tool=</code> и <code>?only=</code> не должно ломать страницу: показывается первый доступный инструмент (Задача 1).</li>
+<li><code>?only=</code> побеждает <code>?tool=</code>, и при нём вкладок нет (Задача 1).</li>
+<li>Если <code>clearData()</code> одного инструмента бросает исключение (хранилище заблокировано), остальные всё равно стираются (Задача 2).</li>
+<li>Заголовок вкладки браузера меняется вместе с языком и инструментом (Задача 3).</li>
+<li>Переключатель языка на странице один, а не два (Задача 3).</li>
+<li>Отказ в подтверждении «Стереть всё» ничего не стирает (Задача 4).</li>
+</ul>
+
+<h2>Структура файлов</h2>
+<table>
+<tr><th>Файл</th><th>Назначение</th></tr>
+<tr><td><code>src/shell/types.ts</code></td><td>Типы <code>ToolId</code>, <code>ToolDef</code>. Без тяжёлых импортов, чтобы тестироваться в Node.</td></tr>
+<tr><td><code>src/shell/route.ts</code></td><td>Чистые функции <code>resolveRoute</code>, <code>toolUrl</code>.</td></tr>
+<tr><td><code>src/shell/wipeAll.ts</code></td><td>Чистая функция <code>wipeAll</code>.</td></tr>
+<tr><td><code>src/shell/tools.ts</code></td><td>Реестр <code>TOOLS</code> (пока только герб).</td></tr>
+<tr><td><code>src/shell/nav.ts</code></td><td>Текущий инструмент: <code>getTool</code>, <code>setTool</code>, <code>useTool</code>.</td></tr>
+<tr><td><code>src/shell/ToolBar.tsx</code>, <code>Shell.tsx</code></td><td>Верхняя полоса и корневой компонент.</td></tr>
+<tr><td><code>tests/shell-route.test.ts</code>, <code>tests/shell-wipe.test.ts</code></td><td>Юнит-тесты.</td></tr>
+<tr><td><code>e2e/shell.spec.ts</code></td><td>Сквозные тесты оболочки.</td></tr>
+</table>
+
+<div class="task">
+<h3>Задача 1: выбор инструмента по адресу</h3>
+<p class="meta"><b>Создать:</b> <code>src/shell/types.ts</code>, <code>src/shell/route.ts</code>. <b>Тест:</b> <code>tests/shell-route.test.ts</code>.</p>
+<p><b>Производит:</b></p>
+<pre><code>// types.ts
+export type ToolId = 'genogram' | 'my-family' | 'crest';
+export const TOOL_IDS: readonly ToolId[] = ['genogram', 'my-family', 'crest'];
+export interface ToolDef {
+  id: ToolId;
+  title(): string;                 // название вкладки на текущем языке
+  Component: import('preact').FunctionComponent;
+  clearData(): void;               // стирает всё, что инструмент хранит на устройстве
+}
+// route.ts
+export interface Route { tool: ToolId; showTabs: boolean }
+export function resolveRoute(search: string, available: ToolId[]): Route;
+export function toolUrl(search: string, tool: ToolId): string; // возвращает строку вида '?lang=en&amp;tool=crest'</code></pre>
+<ul class="steps">
+<li><input type="checkbox"> <b>Шаг 1. Тест (RED).</b> В <code>tests/shell-route.test.ts</code>, ожидаемые значения:
+<pre><code>resolveRoute('', ['my-family','crest'])                      → { tool:'my-family', showTabs:true }
+resolveRoute('?tool=crest', ['my-family','crest'])           → { tool:'crest', showTabs:true }
+resolveRoute('?tool=nope', ['my-family','crest'])            → { tool:'my-family', showTabs:true }
+resolveRoute('?tool=genogram', ['my-family','crest'])        → { tool:'my-family', showTabs:true }  // не зарегистрирован
+resolveRoute('?only=crest', ['my-family','crest'])           → { tool:'crest', showTabs:false }
+resolveRoute('?only=crest&amp;tool=my-family', ['my-family','crest']) → { tool:'crest', showTabs:false }
+resolveRoute('?only=nope', ['my-family','crest'])            → { tool:'my-family', showTabs:true }
+resolveRoute('', ['crest'])                                  → { tool:'crest', showTabs:false }     // один инструмент
+resolveRoute('?tool=crest&amp;tool=my-family', ['my-family','crest']) → { tool:'crest', showTabs:true } // берётся первое значение
+toolUrl('?lang=en', 'crest')            === '?lang=en&amp;tool=crest'
+toolUrl('?lang=en&amp;only=crest', 'my-family') === '?lang=en&amp;tool=my-family'  // only удаляется
+toolUrl('', 'crest')                    === '?tool=crest'</code></pre></li>
+<li><input type="checkbox"> <b>Шаг 2.</b> Запустить <code>npx vitest run tests/shell-route.test.ts</code>. Ожидается FAIL: модуль не найден.</li>
+<li><input type="checkbox"> <b>Шаг 3.</b> Реализовать <code>resolveRoute</code> и <code>toolUrl</code> на <code>URLSearchParams</code>. <code>available</code> не пустой; пустой список — ошибка программиста (бросить <code>Error</code>).</li>
+<li><input type="checkbox"> <b>Шаг 4.</b> Запустить тест. Ожидается PASS.</li>
+<li><input type="checkbox"> <b>Шаг 5.</b> Коммит: <code>feat(shell): route resolution</code>.</li>
+</ul>
+</div>
+
+<div class="task">
+<h3>Задача 2: стирание данных всех инструментов</h3>
+<p class="meta"><b>Создать:</b> <code>src/shell/wipeAll.ts</code>. <b>Тест:</b> <code>tests/shell-wipe.test.ts</code>.</p>
+<p><b>Потребляет:</b> <code>ToolDef</code> из Задачи 1. <b>Производит:</b></p>
+<pre><code>export function wipeAll(tools: Pick&lt;ToolDef, 'clearData'&gt;[]): { failed: number };</code></pre>
+<ul class="steps">
+<li><input type="checkbox"> <b>Шаг 1. Тест (RED).</b> Три инструмента с <code>vi.fn()</code>: у среднего <code>clearData</code> бросает <code>Error</code>. Ожидается: вызваны все три, результат <code>{ failed: 1 }</code>, исключение наружу не вылетает. Второй тест: пустой список даёт <code>{ failed: 0 }</code>.</li>
+<li><input type="checkbox"> <b>Шаг 2.</b> Запустить тест, ожидается FAIL.</li>
+<li><input type="checkbox"> <b>Шаг 3.</b> Реализовать: цикл с <code>try/catch</code> на каждый инструмент, счётчик неудач.</li>
+<li><input type="checkbox"> <b>Шаг 4.</b> Запустить тест, ожидается PASS.</li>
+<li><input type="checkbox"> <b>Шаг 5.</b> Коммит: <code>feat(shell): wipe data of all tools</code>.</li>
+</ul>
+</div>
+
+<div class="task">
+<h3>Задача 3: оболочка вокруг герба</h3>
+<p class="meta"><b>Создать:</b> <code>src/shell/tools.ts</code>, <code>nav.ts</code>, <code>ToolBar.tsx</code>, <code>Shell.tsx</code>, <code>e2e/shell.spec.ts</code>. <b>Изменить:</b> <code>src/main.tsx</code>, <code>src/ui/Header.tsx</code>, <code>src/ui/Start.tsx</code>, <code>src/ui/styles.css</code>, <code>src/i18n/ru.ts</code>, <code>src/i18n/en.ts</code>, <code>e2e/app.spec.ts</code>.</p>
+<p><b>Потребляет:</b> <code>resolveRoute</code>, <code>toolUrl</code>, <code>ToolDef</code>. <b>Производит:</b></p>
+<pre><code>// tools.ts
+export const TOOLS: ToolDef[];                 // порядок как в TOOL_IDS, сейчас только { id:'crest', ... }
+// nav.ts
+export function getTool(): ToolId;
+export function setTool(id: ToolId): void;     // меняет адрес через history.replaceState(null, '', toolUrl(location.search, id))
+export function useTool(): ToolId;             // перерисовывает компонент при смене
+// Shell.tsx
+export function Shell(): JSX.Element;
+// i18n-ключи (ru / en)
+'shell.title'     'Студия семьи' / 'Family Studio'
+'shell.tools'     'Инструменты' / 'Tools'            // aria-label навигации
+'tool.crest'      'Герб семьи'  / 'Family crest'</code></pre>
+<ul class="steps">
+<li><input type="checkbox"> <b>Шаг 1. Тест (RED).</b> <code>e2e/shell.spec.ts</code> (начальный путь <code>./</code>):
+<ul>
+<li><code>оболочка: полоса с названием и один переключатель языка над гербом</code> — виден текст «Студия семьи» (не заголовок h1/h2: <code>getByRole('heading', {name:'Студия семьи'})</code> не найден); <code>getByRole('group', {name:'Язык'})</code> ровно один; виден заголовок «Герб семьи» стартового экрана; <code>toHaveTitle('Герб семьи — Студия семьи')</code>.</li>
+<li><code>английский: название вкладки и оболочки</code> — после нажатия «English»: <code>toHaveTitle('Family crest — Family Studio')</code>, виден текст «Family Studio».</li>
+<li><code>?only=crest показывает только герб, без вкладок</code> — <code>page.goto('./?only=crest')</code>; навигации <code>getByRole('navigation', {name:'Инструменты'})</code> нет; стартовый экран герба виден.</li>
+<li><code>полоса не прячет редактор</code> — открыть чистый лист; холст <code>svg.canvas</code> виден и его нижний край не выходит за окно (<code>boundingBox().y + height &lt;= viewport height</code>); проверка на desktop и mobile проектах.</li>
+</ul>
+В <code>e2e/app.spec.ts</code> заменить ожидание <code>toHaveTitle('Family crest')</code> на <code>'Family crest — Family Studio'</code> и ожидания русского заголовка, если они есть, на новый формат.</li>
+<li><input type="checkbox"> <b>Шаг 2.</b> Собрать и запустить: <code>npm run build &amp;&amp; npx playwright test e2e/shell.spec.ts --project=desktop-chromium</code>. Ожидается FAIL (нет оболочки).</li>
+<li><input type="checkbox"> <b>Шаг 3.</b> Реализовать <code>nav.ts</code>: начальное значение <code>resolveRoute(location.search, TOOLS.map(t=&gt;t.id)).tool</code>; подписчики как в <code>src/i18n/index.ts</code>.</li>
+<li><input type="checkbox"> <b>Шаг 4.</b> Реализовать <code>ToolBar.tsx</code>: кнопка-название (не заголовок), <code>&lt;nav aria-label&gt;</code> с вкладками только при <code>showTabs</code>, <code>LangSwitch</code>. Реализовать <code>Shell.tsx</code>: полоса плюс <code>&lt;div class="shell-body"&gt;</code> с компонентом текущего инструмента; <code>key={lang}</code> оставить так же, как сейчас в <code>App</code>; <code>useEffect</code> по языку и инструменту ставит <code>document.title = `${tool.title()} — ${t('shell.title')}`</code>.</li>
+<li><input type="checkbox"> <b>Шаг 5.</b> <code>tools.ts</code>: герб с <code>Component: App</code> (из <code>src/ui/App.tsx</code>), <code>title: () =&gt; t('tool.crest')</code>, <code>clearData</code> — <code>clearAuto(); openDoc(emptyDoc()); goStart();</code>. В <code>main.tsx</code> рендерить <code>&lt;Shell/&gt;</code> вместо <code>&lt;App/&gt;</code>.</li>
+<li><input type="checkbox"> <b>Шаг 6.</b> Убрать <code>&lt;LangSwitch/&gt;</code> из <code>Header.tsx</code> и из <code>Start.tsx</code> (вместе с блоком <code>.start-top</code>, если он больше ничего не содержит). CSS: <code>.shell { display:flex; flex-direction:column; height:100dvh }</code>, <code>.shell-body { flex:1; min-height:0; overflow:auto }</code>, у <code>.editor</code> заменить <code>height:100dvh</code> на <code>height:100%</code>. Полоса низкая (≈36px) и не занимает места на телефоне больше, чем нужно.</li>
+<li><input type="checkbox"> <b>Шаг 7.</b> Добавить ключи в оба словаря, запустить <code>npm run typecheck &amp;&amp; npm test &amp;&amp; npm run build &amp;&amp; npx playwright test --project=desktop-chromium --project=mobile-chromium</code>. Ожидается: всё зелёное, включая прежние тесты герба.</li>
+<li><input type="checkbox"> <b>Шаг 8.</b> Коммит: <code>feat(shell): top bar and tool registry around the crest</code>.</li>
+</ul>
+</div>
+
+<div class="task">
+<h3>Задача 4: кнопка «Стереть все мои данные»</h3>
+<p class="meta"><b>Изменить:</b> <code>src/shell/ToolBar.tsx</code>, <code>src/i18n/ru.ts</code>, <code>src/i18n/en.ts</code>, <code>src/ui/styles.css</code>. <b>Тест:</b> <code>e2e/shell.spec.ts</code>.</p>
+<p><b>Потребляет:</b> <code>wipeAll</code>, <code>TOOLS</code>. Ключи:</p>
+<pre><code>'shell.data'         'Данные'  / 'Data'
+'shell.wipeAll'      'Стереть все мои данные' / 'Erase all my data'
+'shell.wipeAllAsk'   'Стереть с этого устройства всё, что вы создали в любом инструменте? Это нельзя отменить.' /
+                     'Erase everything you created in any tool from this device? This cannot be undone.'
+'shell.wipeFailed'   'Не все данные удалось стереть. Очистите данные сайта в настройках браузера.' /
+                     'Some data could not be erased. Clear the site data in your browser settings.'</code></pre>
+<ul class="steps">
+<li><input type="checkbox"> <b>Шаг 1. Тест (RED).</b> В <code>e2e/shell.spec.ts</code>:
+<ul>
+<li><code>«Стереть все мои данные» очищает хранилище</code> — создать герб (чистый лист, добавить символ), дождаться автосохранения, открыть меню «Данные», принять <code>confirm</code>; после этого <code>localStorage['family-crest:autosave:v1']</code> равен <code>null</code>; виден стартовый экран.</li>
+<li><code>отказ в подтверждении ничего не стирает</code> — то же, но <code>dialog.dismiss()</code>; ключ остался.</li>
+</ul></li>
+<li><input type="checkbox"> <b>Шаг 2.</b> Запустить, ожидается FAIL.</li>
+<li><input type="checkbox"> <b>Шаг 3.</b> В <code>ToolBar.tsx</code> добавить меню <code>&lt;details class="menu"&gt;</code> (тот же приём, что в <code>Header.tsx</code> герба) с пунктом, который спрашивает <code>window.confirm(t('shell.wipeAllAsk'))</code> и при «да» вызывает <code>wipeAll(TOOLS)</code>. Если <code>failed &gt; 0</code>, показать <code>window.alert(t('shell.wipeFailed'))</code>.</li>
+<li><input type="checkbox"> <b>Шаг 4.</b> Запустить сквозные тесты на desktop и mobile. Ожидается PASS.</li>
+<li><input type="checkbox"> <b>Шаг 5.</b> Коммит: <code>feat(shell): erase data of all tools</code>.</li>
+</ul>
+</div>
+
+<div class="task">
+<h3>Задача 5: документация и итоговая проверка</h3>
+<p class="meta"><b>Изменить:</b> <code>README.md</code>, <code>CHANGELOG.md</code>, <code>tests/i18n.test.ts</code> (если ключи не охвачены).</p>
+<ul class="steps">
+<li><input type="checkbox"> <b>Шаг 1.</b> В README описать оболочку: структура <code>src/shell</code>, ссылки <code>?tool=</code> и <code>?only=</code>, стирание данных. Раздел «Status» уточнить: герб в оболочке, остальные инструменты ещё нет.</li>
+<li><input type="checkbox"> <b>Шаг 2.</b> В <code>CHANGELOG.md</code> проверить, что Added/Changed содержит оболочку, ссылки и меню «Данные».</li>
+<li><input type="checkbox"> <b>Шаг 3.</b> Выполнить <code>npm run typecheck &amp;&amp; npm test &amp;&amp; npm run build</code>, затем <code>npx playwright test --project=desktop-chromium --project=mobile-chromium</code>. Ожидается: всё зелёное, тест «никаких внешних запросов» проходит.</li>
+<li><input type="checkbox"> <b>Шаг 4.</b> Коммит: <code>docs: describe the shell</code>. Слить ветку в <code>main</code> через pull request.</li>
+</ul>
+</div>
+</main>
+</body>
+</html>
