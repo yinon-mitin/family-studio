@@ -1,7 +1,7 @@
 import { t } from '../i18n/index.ts';
 import { emptyDoc } from '../model/doc.ts';
 import { clearAuto } from '../model/serialize.ts';
-import { goStart, openDoc } from '../model/store.ts';
+import { setState } from '../model/store.ts';
 import { App } from '../ui/App.tsx';
 import type { ToolDef } from './types.ts';
 
@@ -13,8 +13,8 @@ export const TOOLS: ToolDef[] = [
     Component: App,
     clearData() {
       clearAuto();
-      openDoc(emptyDoc());
-      goStart();
+      // Not openDoc(): it schedules an autosave that would write an empty document back into the key just cleared.
+      setState({ doc: emptyDoc(), past: [], future: [], selected: null, screen: 'start', dialog: null });
     },
   },
 ];

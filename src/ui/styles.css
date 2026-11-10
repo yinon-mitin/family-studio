@@ -423,8 +423,21 @@ input[type='range'] {
   border-bottom-color: var(--gold);
 }
 
-.shell-bar .lang-switch {
+.shell-bar .menu {
   margin-left: auto;
+}
+
+.shell-bar .menu summary {
+  display: flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0 12px;
+  color: inherit;
+  font: 600 13px system-ui, sans-serif;
+}
+
+.shell-bar .lang-switch {
+  margin-left: 0;
 }
 
 .shell-bar .lang-switch button {

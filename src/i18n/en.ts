@@ -9,6 +9,10 @@ export const en: Record<Key, string> = {
   'app.loadFailed': 'Could not load the site resources. Check your connection and reload the page.',
   'shell.title': 'Family Studio',
   'shell.tools': 'Tools',
+  'shell.data': 'Data',
+  'shell.wipeAll': 'Erase all my data',
+  'shell.wipeAllAsk': 'Erase everything you created in any tool from this device? This cannot be undone.',
+  'shell.wipeFailed': 'Some data could not be erased. Clear the site data in your browser settings.',
   'tool.crest': 'Family crest',
   'lang.label': 'Language',
 
