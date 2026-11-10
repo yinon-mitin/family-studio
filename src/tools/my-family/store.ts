@@ -2,7 +2,7 @@
 import { useEffect, useState } from 'preact/hooks';
 import { createDocStore } from '../../core/docStore.ts';
 import { addFigure, deleteFigure, duplicateFigure, neighbour, newDoc, reorder, updateFigure, type FigureKind, type MyFamilyDoc } from './model.ts';
-import { clearAuto, loadAuto, saveAuto } from './persist.ts';
+import { clearAuto, eraseAuto, loadAuto, saveAuto } from './persist.ts';
 import { pickOrientation, type Orientation } from './sheet.ts';
 
 const SAVE_DELAY_MS = 400;
@@ -181,7 +181,8 @@ export function openDrawing(doc: MyFamilyDoc): void {
   replaceDrawing(doc);
 }
 
-/** Erases the stored drawing and starts an empty one without writing anything back. */
+/** Erases the stored drawing and starts an empty one without writing anything back. Throws if the stored drawing is still there. */
 export function clearData(): void {
   replaceDrawing(newDoc(currentOrientation()));
+  eraseAuto();
 }

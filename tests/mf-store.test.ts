@@ -65,6 +65,24 @@ describe('my-family store: autosave', () => {
     expect(writes).not.toHaveBeenCalled();
   });
 
+  it('clearData throws when the storage keeps the stored drawing, so the wipe can report it', () => {
+    s.add('circle');
+    vi.advanceTimersByTime(400);
+    vi.stubGlobal('localStorage', { getItem: (k: string) => storage.get(k) ?? null, setItem: () => {}, removeItem: () => {} });
+    expect(() => s.clearData()).toThrow();
+  });
+
+  it('clearData throws when the storage throws', () => {
+    vi.stubGlobal('localStorage', {
+      getItem: () => '{}',
+      setItem: () => {},
+      removeItem: () => {
+        throw new Error('blocked');
+      },
+    });
+    expect(() => s.clearData()).toThrow();
+  });
+
   it('clearData resets the document, history and selection', () => {
     s.add('circle');
     s.add('square');

@@ -1,3 +1,4 @@
+import { eraseKeys } from '../../core/storage.ts';
 import {
   COLORS,
   MAX_FIGURES,
@@ -147,6 +148,11 @@ export function loadAuto(store?: Store): MyFamilyDoc | null {
   } catch {
     return null;
   }
+}
+
+/** Like `clearAuto`, but throws when the stored drawing could not be erased. */
+export function eraseAuto(store?: Store): void {
+  eraseKeys([STORAGE_KEY], store);
 }
 
 export function clearAuto(store?: Store): void {

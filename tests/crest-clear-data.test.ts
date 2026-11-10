@@ -45,4 +45,17 @@ describe('crest clearData', () => {
     crest.clearData();
     expect(getState().resetSeq).toBe(before + 1);
   });
+
+  it('erases the legacy key too', () => {
+    storage.set('family-tree:autosave:v1', '{}');
+    crest.clearData();
+    expect(storage.has('family-tree:autosave:v1')).toBe(false);
+  });
+
+  it('throws when the storage keeps the stored crest, and still resets the screen', () => {
+    vi.stubGlobal('localStorage', { getItem: () => '{}', setItem: () => {}, removeItem: () => {} });
+    const before = getState().resetSeq;
+    expect(() => crest.clearData()).toThrow();
+    expect(getState().resetSeq).toBe(before + 1);
+  });
 });

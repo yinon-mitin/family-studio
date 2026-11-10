@@ -1,14 +1,23 @@
-import type { ToolDef } from './types';
+export interface WipeTarget {
+  id: string;
+  /** Erases what the target stores; throws if it could not be erased. */
+  clearData(): void;
+}
 
-/** Erases every tool's data; one failing tool must not stop the rest. */
-export function wipeAll(tools: Pick<ToolDef, 'clearData'>[]): { failed: number } {
-  let failed = 0;
-  for (const tool of tools) {
+export interface WipeFailure {
+  id: string;
+  error: unknown;
+}
+
+/** Erases every target; one failing target must not stop the rest. */
+export function wipeAll(targets: WipeTarget[]): { failed: number; failures: WipeFailure[] } {
+  const failures: WipeFailure[] = [];
+  for (const target of targets) {
     try {
-      tool.clearData();
-    } catch {
-      failed += 1;
+      target.clearData();
+    } catch (error) {
+      failures.push({ id: target.id, error });
     }
   }
-  return { failed };
+  return { failed: failures.length, failures };
 }

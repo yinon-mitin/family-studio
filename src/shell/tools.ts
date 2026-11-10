@@ -1,5 +1,5 @@
 import { t } from '../i18n/index.ts';
-import { clearAuto } from '../model/serialize.ts';
+import { eraseAuto } from '../model/serialize.ts';
 import { resetDoc } from '../model/store.ts';
 import { App } from '../ui/App.tsx';
 import { MyFamily } from '../tools/my-family/MyFamily.tsx';
@@ -14,8 +14,11 @@ export const TOOLS: ToolDef[] = [
     title: () => t('tool.crest'),
     Component: App,
     clearData() {
-      clearAuto();
-      resetDoc();
+      try {
+        eraseAuto();
+      } finally {
+        resetDoc(); // also when erasing failed: no pending autosave may fire, the start screen reads the storage again
+      }
     },
   },
 ];

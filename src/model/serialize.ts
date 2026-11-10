@@ -15,6 +15,7 @@ import { ORNAMENTS } from '../render/ornaments.ts';
 import { PATTERNS } from '../render/patterns.ts';
 import { DIVISIONS, SHAPES } from '../render/shields.ts';
 import { newId } from './doc.ts';
+import { eraseKeys } from '../core/storage.ts';
 
 const STORAGE_KEY = 'family-crest:autosave:v1';
 const LEGACY_STORAGE_KEY = 'family-tree:autosave:v1';
@@ -156,6 +157,11 @@ export function loadAuto(): CrestDoc | null {
   } catch {
     return null;
   }
+}
+
+/** Like `clearAuto`, but throws when the stored crest could not be erased. */
+export function eraseAuto(): void {
+  eraseKeys([STORAGE_KEY, LEGACY_STORAGE_KEY]);
 }
 
 export function clearAuto(): void {

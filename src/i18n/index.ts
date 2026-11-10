@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'preact/hooks';
 import { ru, type Key } from './ru.ts';
 import { en } from './en.ts';
+import { eraseKeys } from '../core/storage.ts';
 
 export type Lang = 'ru' | 'en';
 export const LANGS: Lang[] = ['ru', 'en'];
@@ -50,6 +51,11 @@ export function applyDocumentLang(): void {
   document.documentElement.lang = lang;
   document.title = t('app.title');
   document.querySelector('meta[name="description"]')?.setAttribute('content', t('app.description'));
+}
+
+/** Forgets the saved language choice (the language in use stays until the page is reloaded). Throws if it could not be erased. */
+export function eraseLang(): void {
+  eraseKeys([STORAGE_KEY]);
 }
 
 export function setLang(next: Lang): void {

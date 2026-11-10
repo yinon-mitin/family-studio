@@ -32,6 +32,21 @@ test('полоса не прячет редактор', async ({ page }) => {
   expect(box!.y + box!.height).toBeLessThanOrEqual(height);
 });
 
+/** «Данные → Стереть все мои данные» и ответ в собственном окне подтверждения. */
+async function eraseAll(page: Page, answer: 'confirm' | 'cancel' | 'escape' = 'confirm') {
+  await page.getByText('Данные', { exact: true }).click();
+  await page.getByRole('button', { name: 'Стереть все мои данные' }).click();
+  const dialog = page.getByRole('dialog', { name: 'Стереть все мои данные' });
+  await expect(dialog).toBeVisible();
+  if (answer === 'escape') {
+    await expect(dialog).toBeFocused(); // the dialog has attached its keyboard handling by now
+    await page.keyboard.press('Escape');
+  } else {
+    await dialog.getByRole('button', { name: answer === 'confirm' ? 'Стереть' : 'Отмена', exact: true }).click();
+  }
+  await expect(dialog).toHaveCount(0);
+}
+
 const AUTOSAVE_KEY = 'family-crest:autosave:v1';
 const readAutosave = (page: Page) => page.evaluate((key) => localStorage.getItem(key), AUTOSAVE_KEY);
 
@@ -54,9 +69,7 @@ async function crestWithAutosave(page: Page) {
 
 test('«Стереть все мои данные» очищает хранилище', async ({ page }) => {
   await crestWithAutosave(page);
-  page.once('dialog', (d) => d.accept());
-  await page.getByText('Данные', { exact: true }).click();
-  await page.getByRole('button', { name: 'Стереть все мои данные' }).click();
+  await eraseAll(page);
   // автосохранение дебаунсится на 400 мс: ждём дольше, чтобы убедиться, что пустой лист не записался обратно
   await page.waitForTimeout(900);
   expect(await readAutosave(page)).toBeNull();
@@ -68,9 +81,7 @@ test('стирание на экране «Продолжить»: карточ�
   await page.reload(); // the start screen with the continue card
   const card = page.getByRole('button', { name: /Продолжить/ });
   await expect(card).toBeVisible();
-  page.once('dialog', (d) => d.accept());
-  await page.getByText('Данные', { exact: true }).click();
-  await page.getByRole('button', { name: 'Стереть все мои данные' }).click();
+  await eraseAll(page);
   await expect(card).toHaveCount(0);
   await page.waitForTimeout(900);
   expect(await readAutosave(page)).toBeNull();
@@ -82,12 +93,63 @@ test('стирание на экране «Продолжить»: карточ�
 
 test('отказ в подтверждении ничего не стирает', async ({ page }) => {
   await crestWithAutosave(page);
-  page.once('dialog', (d) => d.dismiss());
-  await page.getByText('Данные', { exact: true }).click();
-  await page.getByRole('button', { name: 'Стереть все мои данные' }).click();
+  await eraseAll(page, 'cancel');
   await page.waitForTimeout(900);
   expect(await readAutosave(page)).not.toBeNull();
   await expect(page.locator('svg.canvas')).toBeVisible();
+});
+
+test('отказ в подтверждении не трогает рисунок «Моей семьи» (кнопка и Escape)', async ({ page }) => {
+  await page.goto('./');
+  await page.getByRole('button', { name: 'Круг', exact: true }).click();
+  await expect.poll(() => readKey(page, MF_KEY)).not.toBeNull();
+  await eraseAll(page, 'cancel');
+  await eraseAll(page, 'escape');
+  await page.waitForTimeout(900);
+  expect(await readKey(page, MF_KEY)).not.toBeNull();
+  await expect(page.locator('svg.mf-sheet [data-fig]')).toHaveCount(1);
+  await expect(page.getByText('Данные стёрты')).toHaveCount(0);
+});
+
+test('стирание сообщает об успехе и работает без системных диалогов', async ({ page }) => {
+  page.on('dialog', (d) => {
+    throw new Error('the system dialog must not be used: ' + d.message());
+  });
+  await page.goto('./');
+  await page.getByRole('button', { name: 'Круг', exact: true }).click();
+  await expect.poll(() => readKey(page, MF_KEY)).not.toBeNull();
+  await eraseAll(page);
+  await expect(page.getByRole('status').filter({ hasText: 'Данные стёрты' })).toBeVisible();
+  expect(await readKey(page, MF_KEY)).toBeNull();
+});
+
+test('стирание: язык тоже забывается, но интерфейс остаётся на выбранном языке', async ({ page }) => {
+  await page.goto('./');
+  await page.getByRole('button', { name: 'English' }).click();
+  expect(await readKey(page, 'family-crest:lang')).toBe('en');
+  await page.getByText('Data', { exact: true }).click();
+  await page.getByRole('button', { name: 'Erase all my data' }).click();
+  await page.getByRole('dialog', { name: 'Erase all my data' }).getByRole('button', { name: 'Erase', exact: true }).click();
+  await expect(page.getByRole('status').filter({ hasText: 'Data erased' })).toBeVisible();
+  expect(await readKey(page, 'family-crest:lang')).toBeNull();
+  await expect(page.locator('html')).toHaveAttribute('lang', 'en');
+});
+
+test('стирание: если хранилище не даёт удалить, показано, что именно не стёрто', async ({ page }) => {
+  await page.goto('./');
+  await page.getByRole('button', { name: 'Круг', exact: true }).click();
+  await expect.poll(() => readKey(page, MF_KEY)).not.toBeNull();
+  await page.evaluate(() => {
+    Storage.prototype.removeItem = () => {
+      throw new Error('blocked');
+    };
+  });
+  await eraseAll(page);
+  const status = page.getByRole('status').filter({ hasText: 'Не удалось стереть данные' });
+  await expect(status).toBeVisible();
+  await expect(status).toContainText('Моя семья');
+  await expect(status).toContainText('Герб семьи');
+  await expect(page.getByText('Данные стёрты')).toHaveCount(0);
 });
 
 // ---------- вкладки и «Моя семья» ----------
@@ -143,9 +205,7 @@ test('«Стереть все мои данные» очищает оба инс
   await page.clock.runFor(100); // lets the page draw (effects wait for a frame); the 400 ms timers are still pending
   await expect(page.locator('svg.mf-sheet [data-fig]')).toHaveCount(2);
 
-  page.once('dialog', (d) => d.accept());
-  await page.getByText('Данные', { exact: true }).click();
-  await page.getByRole('button', { name: 'Стереть все мои данные' }).click();
+  await eraseAll(page);
   expect(await readKey(page, MF_KEY)).toBeNull();
   expect(await readKey(page, AUTOSAVE_KEY)).toBeNull();
 

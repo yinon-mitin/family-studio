@@ -892,6 +892,21 @@ input[type='range'] {
   box-shadow: 0 6px 20px rgba(0, 0, 0, 0.3);
 }
 
+/* Результат «Стереть все мои данные»: поверх любого инструмента. */
+.shell-toast {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.shell-toast.fail {
+  background: #7d1a1f;
+}
+
+.shell-toast .mini {
+  color: inherit;
+}
+
 /* ---------- стартовый экран ---------- */
 
 .start {
