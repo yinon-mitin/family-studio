@@ -227,6 +227,32 @@ describe('sanitizeDoc', () => {
     for (const id of ids) expect(typeof id === 'string' && id.length > 0).toBe(true);
   });
 
+  it('keeps plain ids of 1 to 64 letters, digits, underscore and dash', () => {
+    const ok = ['a', 'A-z_9', 'x'.repeat(64)];
+    const d = sanitizeDoc(docOf(ok.map((id) => fig({ id }))));
+    expect(d!.figures.map((f) => f.id)).toEqual(ok);
+  });
+
+  it.each([
+    ['NUL', 'a\u0000b'],
+    ['a control character', 'a\u0001b'],
+    ['a newline', 'a\nb'],
+    ['a space', 'a b'],
+    ['a double quote', 'a"b'],
+    ['an apostrophe', "a'b"],
+    ['an angle bracket', 'a<b'],
+    ['a lone surrogate', 'a\ud800b'],
+    ['a non-ASCII letter', 'жук'],
+    ['65 characters', 'x'.repeat(65)],
+  ])('replaces an id with %s by a fresh plain one', (_name, bad) => {
+    const d = sanitizeDoc(docOf([fig({ id: bad }), fig({ id: 'ok' })]));
+    const ids = d!.figures.map((f) => f.id);
+    expect(ids[0]).not.toBe(bad);
+    expect(ids[0]).toMatch(/^[A-Za-z0-9_-]{1,64}$/);
+    expect(ids[1]).toBe('ok');
+    expect(new Set(ids).size).toBe(2);
+  });
+
   it('does not let a generated id collide with a later real id', () => {
     const d = sanitizeDoc(docOf([fig({ id: 5 }), fig({ id: 'b' }), fig({ id: 'b' })]));
     expect(new Set(d!.figures.map((f) => f.id)).size).toBe(3);

@@ -123,4 +123,12 @@ describe('renderSheet', () => {
     expect(svg).toContain('data-fig="a&quot;&lt;b"');
     expect(svg).not.toContain('a"<b');
   });
+
+  it('lets no character that is illegal in XML reach the SVG, whatever the id', () => {
+    for (const id of ['a\u0000b', 'a\u0001b', 'a\u001fb', 'a\ufffeb']) {
+      const svg = renderSheet({ ...doc(), figures: [fig({ id })] }, { selected: id, prefix: id });
+      // eslint-disable-next-line no-control-regex
+      expect(svg, JSON.stringify(id)).not.toMatch(/[\u0000-\u0008\u000b\u000c\u000e-\u001f\ufffe\uffff]/);
+    }
+  });
 });

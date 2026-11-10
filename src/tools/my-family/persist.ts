@@ -22,7 +22,8 @@ type Store = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>;
 
 const KINDS: readonly string[] = ['circle', 'square', 'rect', 'triangle'];
 const DEFAULT_COLOR = '#42a5f5';
-const MAX_ID_LENGTH = 64;
+/** Ids end up in HTML and SVG attributes and in selectors: plain ASCII only, so no character can be altered or make the SVG ill-formed. */
+const ID_PATTERN = /^[A-Za-z0-9_-]{1,64}$/;
 const INSIDE_TOLERANCE = 1e-6;
 
 const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null && !Array.isArray(v);
@@ -73,7 +74,7 @@ function figure(v: unknown, o: Orientation): { fig: Figure; rawId: string | null
     },
     o,
   );
-  const rawId = typeof v.id === 'string' && v.id.length > 0 && v.id.length <= MAX_ID_LENGTH ? v.id : null;
+  const rawId = typeof v.id === 'string' && ID_PATTERN.test(v.id) ? v.id : null;
   return { fig, rawId };
 }
 

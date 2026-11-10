@@ -20,8 +20,12 @@ const OUTLINE_WIDTH = 3;
 const PATTERN_BASE = 360; // a texture is scaled by size / PATTERN_BASE
 const RING_GAP = 10;
 
+// Characters XML 1.0 forbids are dropped (an id from a code path other than the file reader must not break the export either).
+// eslint-disable-next-line no-control-regex
+const ILLEGAL_XML = /[\u0000-\u0008\u000b\u000c\u000e-\u001f\ufffe\uffff]/g;
+
 const esc = (s: string): string =>
-  s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  s.replace(ILLEGAL_XML, '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 // Outline of the figure around its own centre, before rotation.
 function shapePath(f: Figure): string {
