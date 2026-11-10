@@ -1479,3 +1479,49 @@ input[type='range'] {
   padding: 24px 18px;
   text-align: center;
 }
+
+/* Phone: every control in the top bar is a comfortable touch target (at least 44 px). */
+@media (max-width: 900px) {
+  .shell-bar {
+    min-height: 44px;
+  }
+
+  .shell-tabs button,
+  .shell-bar .menu summary {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  .shell-bar .lang-switch button {
+    min-height: 44px;
+    min-width: 44px;
+  }
+}
+
+/* A narrow portrait phone: the tabs get a row of their own instead of squeezing the name and the buttons. */
+@media (max-width: 520px) {
+  .shell-bar {
+    flex-wrap: wrap;
+    gap: 0 6px;
+    padding: 0 8px;
+  }
+
+  .shell-brand {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .shell-tabs {
+    order: 3;
+    flex: 1 0 100%;
+  }
+
+  .shell-tabs button {
+    flex: 1;
+    white-space: normal;
+  }
+
+  .shell-bar .menu {
+    margin-left: 0;
+  }
+}

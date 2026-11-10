@@ -194,6 +194,28 @@ test('описание страницы: студия, и в исходном HT
   expect(await description(page)).toContain('Студия семьи');
 });
 
+for (const [w, h] of [[360, 740], [412, 915], [844, 390]]) {
+  test(`телефон ${w}x${h}: вкладки, «Данные» и язык не меньше 44 px, полоса не вылезает`, async ({ page }) => {
+    test.skip(test.info().project.name !== 'mobile-chromium', 'touch targets matter on phones');
+    await page.setViewportSize({ width: w, height: h });
+    for (const lang of ['ru', 'en']) {
+      await page.goto(`./?lang=${lang}`);
+      await expect(page.locator('svg.mf-sheet')).toBeVisible();
+      const targets = page.locator('.shell-bar').locator('.shell-tabs button, summary, .lang-switch button');
+      expect(await targets.count()).toBe(5);
+      for (let i = 0; i < 5; i++) {
+        const box = (await targets.nth(i).boundingBox())!;
+        expect(box.height, `${lang} target ${i} height`).toBeGreaterThanOrEqual(44);
+        expect(box.width, `${lang} target ${i} width`).toBeGreaterThanOrEqual(44);
+        expect(box.x, `${lang} target ${i} left`).toBeGreaterThanOrEqual(0);
+        expect(box.x + box.width, `${lang} target ${i} right`).toBeLessThanOrEqual(w);
+      }
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+      expect(await page.evaluate(() => { const bar = document.querySelector('.shell-bar')!; return bar.scrollWidth <= bar.clientWidth; })).toBe(true);
+    }
+  });
+}
+
 // ---------- вкладки и «Моя семья» ----------
 
 const MF_KEY = 'family-studio:my-family:autosave:v1';
