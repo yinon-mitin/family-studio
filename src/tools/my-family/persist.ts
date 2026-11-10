@@ -62,8 +62,9 @@ function figure(v: unknown, o: Orientation): { fig: Figure; rawId: string | null
     {
       id: '',
       kind: v.kind as FigureKind,
-      x: finite(v.x) ? v.x : w / 2,
-      y: finite(v.y) ? v.y : h / 2,
+      // pre-clamp so clampToSheet never adds offsets to huge magnitudes (precision loss)
+      x: num(v.x, w / 2, 0, w),
+      y: num(v.y, h / 2, 0, h),
       size: round2(num(v.size, SIZE_DEFAULT, SIZE_MIN, SIZE_MAX)),
       rotation,
       color,

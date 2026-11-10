@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 import {
   FILE_APP,
   STORAGE_KEY,
@@ -66,9 +66,19 @@ const throwingStore = {
 function insideSheet(f: Figure, o: 'portrait' | 'landscape'): boolean {
   const { w, h } = sheetSize(o);
   const b = figureBounds(f);
-  const eps = 0.01;
+  const eps = 1e-6;
   return b.minX >= -eps && b.minY >= -eps && b.maxX <= w + eps && b.maxY <= h + eps;
 }
+
+// Node >= 25 exposes a localStorage getter that warns when read; remove it so tests are deterministic and silent.
+const savedLocalStorage = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+beforeAll(() => {
+  delete (globalThis as { localStorage?: unknown }).localStorage;
+});
+afterAll(() => {
+  delete (globalThis as { localStorage?: unknown }).localStorage;
+  if (savedLocalStorage) Object.defineProperty(globalThis, 'localStorage', savedLocalStorage);
+});
 
 describe('constants', () => {
   it('uses the agreed key and marker', () => {
@@ -183,6 +193,26 @@ describe('sanitizeDoc', () => {
     }
   });
 
+  it('puts astronomically large finite coordinates fully back on the sheet (strict tolerance)', () => {
+    const kinds = ['circle', 'square', 'rect', 'triangle'] as const;
+    const spots = [1e300, -1e300, 1.7e308, 1e20, 1e17, 1e16, -1e17];
+    for (const o of ['portrait', 'landscape'] as const) {
+      const figures = spots.flatMap((v) =>
+        kinds.flatMap((kind) => [
+          fig({ kind, x: v, y: v, size: 260, rotation: 33 }),
+          fig({ kind, x: v, y: -v, size: 100, rotation: 17 }),
+          fig({ kind, x: -v, y: v, size: 30, rotation: 90 }),
+        ]),
+      );
+      const d = sanitizeDoc(docOf(figures, { orientation: o }));
+      expect(d!.figures).toHaveLength(figures.length);
+      for (const f of d!.figures) {
+        expect(Number.isFinite(f.x) && Number.isFinite(f.y)).toBe(true);
+        expect(insideSheet(f, o), `${o} ${f.kind} at (${f.x}, ${f.y}) size ${f.size}`).toBe(true);
+      }
+    }
+  });
+
   it('rounds x, y and size to 2 decimals', () => {
     const d = sanitizeDoc(docOf([fig({ x: 300.1234567, y: 400.0000001 + 0.1 + 0.2, size: 100.456789 })]));
     expect(d?.figures[0]).toMatchObject({ x: 300.12, y: 400.3, size: 100.46 });
@@ -270,6 +300,7 @@ describe('autosave', () => {
   });
 
   it('with no localStorage in the environment all three are harmless', () => {
+    // beforeAll removed it, so this does not depend on the Node version or flags
     expect((globalThis as { localStorage?: unknown }).localStorage).toBeUndefined();
     expect(loadAuto()).toBeNull();
     expect(() => saveAuto(sample)).not.toThrow();
