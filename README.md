@@ -2,7 +2,7 @@
 
 Tools for family work in psychology practice, in one site: a **family crest** builder (ready), a **genogram** drawing tool and the projective **"My Family"** drawing (both planned). The repository was created by merging two earlier projects, `family-crest` and `family-map`, with their full git history.
 
-> **Status.** Only the crest builder is wired into the site so far. The original `family-map` editor lives unchanged in [`legacy/family-map`](legacy/family-map) until its parts are ported to the new shared application.
+> **Status.** The site now has a shell (top bar, tool registry, shared language switch, "erase all my data") and the crest builder runs inside it as its first tool. "My Family" and the genogram are not wired in yet. The original `family-map` editor lives unchanged in [`legacy/family-map`](legacy/family-map) until its parts are ported to the new shared application.
 
 ## Family crest
 
@@ -10,7 +10,26 @@ An interactive family crest builder for group psychology practice. Participants 
 
 **Live site:** https://yinon-mitin.github.io/family-studio/
 
-The interface is available in **Russian** (default) and **English**. Switch with the RU / EN button in the corner; the choice is remembered in the browser, and `?lang=en` in the address opens the English version directly.
+The interface is available in **Russian** (default) and **English**. Switch with the RU / EN button in the corner; the choice is remembered in the browser, and `?lang=en` in the address opens the English version directly. The switch sits in the shell bar.
+
+## The shell
+
+The site is a thin shell around the tools: a slim top bar with the site name, tool tabs, a **Data** menu and the RU / EN switch, with the active tool below it. The language switch lives in the bar and is shared by all tools; the browser tab title follows the language and the tool ("Family crest — Family Studio").
+
+- **Tool tabs** are shown only when more than one tool is registered. Today there is a single tool (the crest), so the bar has no tabs.
+- **Links.** `?tool=<id>` opens a given tool (ids: `genogram`, `my-family`, `crest`); switching tabs updates it in the address without adding a history entry. `?only=<id>` shows just that tool with no tabs and wins over `?tool=`. A missing or unknown value never breaks the page: the first registered tool is shown. Other parameters such as `?lang=en` are kept, so `?only=crest&lang=en` works.
+- **Data → Erase all my data** asks for confirmation, then erases everything every registered tool keeps on the device. If one tool fails to erase (for example the browser blocks its storage), the others are still erased and a warning is shown. Declining the confirmation erases nothing.
+
+Tools are registered in `src/shell/tools.ts`; a tool is an id, a tab title, a component and a `clearData()` function.
+
+```
+src/shell/route.ts     resolveRoute (address to tool and tabs) and toolUrl
+src/shell/tools.ts     the tool registry
+src/shell/nav.ts       the current tool (kept in the address) and the useTool hook
+src/shell/wipeAll.ts   erases the data of all tools, continuing past failures
+src/shell/ToolBar.tsx  top bar: name, tabs, Data menu, language switch
+src/shell/Shell.tsx    bar plus the current tool, sets the page title
+```
 
 ## Features
 
@@ -27,6 +46,7 @@ The interface is available in **Russian** (default) and **English**. Switch with
 A crest is a document made of layers (`src/model/types.ts`). A single function, `renderCrest` (`src/render/renderCrest.ts`), turns it into SVG and is used by the editor and by every export, so a downloaded file matches the screen. The SVG contains only paths, solid fills and `clipPath`: no `<text>`, filters, masks or `<pattern>`, since those are what differ between browsers and PDF. Text is converted to outlines using the PT Serif and Cormorant fonts, so Cyrillic and Latin letters look the same everywhere. The price is that text in the PDF cannot be selected or searched.
 
 ```
+src/shell/    shell: routing, tool registry, top bar, erase-all-data
 src/model/    document, history, templates, data validation
 src/render/   shields and divisions, patterns, ornaments, text, renderCrest, symbol fitting
 src/export/   SVG, PNG, PDF and the story pages
@@ -77,7 +97,7 @@ End-to-end tests need the Playwright browser (`npx playwright install chromium`)
 - **Templates:** every template, in both languages, is checked geometrically (`tests/templates.test.ts`): nothing leaves the canvas, symbols stay inside the shield and their own field with a margin and do not touch each other, the shield, ornaments and captions are mirror-symmetric about the vertical axis, captions do not run into the shield, symbols or rings.
 - **Shield fields:** for every shape and division, a symbol fits its field; mirrored fields are mirror images.
 - **Translations:** both dictionaries have the same keys and placeholders, English text has no Cyrillic, and nothing in the catalog is untranslated.
-- **End to end:** both paths from start to export, drag, rotate, scale, restoring after a reload, erasing data, no external requests, and switching the language.
+- **End to end:** both paths from start to export, drag, rotate, scale, restoring after a reload, erasing data, no external requests, and switching the language. The shell has its own tests: address routing and the erase-all helper (Vitest), and the bar, `?only=`, the page title and the erase-all menu with and without confirmation (Playwright).
 
 ## Deployment
 
