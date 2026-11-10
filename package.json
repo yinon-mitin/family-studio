@@ -1,9 +1,9 @@
 {
-  "name": "family-crest",
+  "name": "family-studio",
   "private": true,
   "version": "1.0.0",
   "type": "module",
-  "description": "Интерактивный конструктор герба семьи для групповых психологических практик",
+  "description": "Family Studio: tools for family work in psychology practice (genogram, My Family projective drawing, family crest)",
   "license": "MIT",
   "scripts": {
     "symbols": "node scripts/build-symbols.ts",

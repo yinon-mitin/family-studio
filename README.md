@@ -1,8 +1,14 @@
-# Family crest
+# Family Studio
+
+Tools for family work in psychology practice, in one site: a **family crest** builder (ready), a **genogram** drawing tool and the projective **"My Family"** drawing (both planned). The repository was created by merging two earlier projects, `family-crest` and `family-map`, with their full git history.
+
+> **Status.** Only the crest builder is wired into the site so far. The original `family-map` editor lives unchanged in [`legacy/family-map`](legacy/family-map) until its parts are ported to the new shared application.
+
+## Family crest
 
 An interactive family crest builder for group psychology practice. Participants put together a crest from lines of work, animals, nature, symbols, ornaments and colors, then download it as **PNG**, **PDF** or **SVG**.
 
-**Live site:** https://yinon-mitin.github.io/family-crest/
+**Live site:** https://yinon-mitin.github.io/family-studio/
 
 The interface is available in **Russian** (default) and **English**. Switch with the RU / EN button in the corner; the choice is remembered in the browser, and `?lang=en` in the address opens the English version directly.
 
@@ -58,7 +64,7 @@ Requires Node.js 20.19 or newer.
 
 ```bash
 npm install
-npm run dev        # http://localhost:5173/family-crest/
+npm run dev        # http://localhost:5173/family-studio/
 npm test           # unit tests (Vitest)
 npm run e2e        # end-to-end tests (Playwright); they build the site themselves
 npm run build      # type check and build into dist/
@@ -75,7 +81,7 @@ End-to-end tests need the Playwright browser (`npx playwright install chromium`)
 
 ## Deployment
 
-On every push to `main`, GitHub Actions checks types, runs the tests, builds the site and publishes it to GitHub Pages (`.github/workflows/deploy.yml`). In the repository settings: Settings → Pages → Source: **GitHub Actions**. The site address is set in `vite.config.ts` (`base: '/family-crest/'`).
+On every push to `main`, GitHub Actions checks types, runs the tests, builds the site and publishes it to GitHub Pages (`.github/workflows/deploy.yml`). In the repository settings: Settings → Pages → Source: **GitHub Actions**. The site address is set in `vite.config.ts` (`base: '/family-studio/'`).
 
 ## Licenses and credits
 

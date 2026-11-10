@@ -1,7 +1,7 @@
 import { getLang } from '../i18n/index.ts';
 import { Modal } from './Modal.tsx';
 
-const REPO = 'https://github.com/yinon-mitin/family-crest';
+const REPO = 'https://github.com/yinon-mitin/family-studio';
 
 export function About({ onClose }: { onClose(): void }) {
   const en = getLang() === 'en';

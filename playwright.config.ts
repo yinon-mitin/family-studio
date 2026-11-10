@@ -1,7 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
-// По умолчанию тесты идут против собранного сайта. Для быстрой отладки: E2E_BASE=http://localhost:5173/family-crest/ npm run e2e
-const base = process.env.E2E_BASE ?? 'http://localhost:4173/family-crest/';
+// По умолчанию тесты идут против собранного сайта. Для быстрой отладки: E2E_BASE=http://localhost:5173/family-studio/ npm run e2e
+const base = process.env.E2E_BASE ?? 'http://localhost:4173/family-studio/';
 
 export default defineConfig({
   testDir: 'e2e',
