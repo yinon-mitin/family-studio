@@ -844,7 +844,7 @@ test('файл: сбой при сохранении показывает соо
   await expect(figures(page)).toHaveCount(1); // the app is still alive
 });
 
-test('никаких внешних запросов: добавление, перетаскивание, диалог скачивания, сохранение', async ({ page, baseURL }) => {
+test('никаких внешних запросов: добавление, перетаскивание, скачивание PNG, PDF и SVG, сохранение', async ({ page, baseURL }) => {
   const origin = new URL(baseURL!).origin;
   const requests: string[] = [];
   const sockets: string[] = [];
@@ -861,6 +861,13 @@ test('никаких внешних запросов: добавление, пе
   await expect(exportDialog(page)).toBeVisible();
   await exportDialog(page).getByRole('button', { name: 'Закрыть' }).click();
   await expect(exportDialog(page)).toHaveCount(0);
+  // the real exports, with their lazily loaded chunks (jspdf, svg2pdf, html2canvas)
+  const dir = makeTmp();
+  expect((await grab(page, dir, 'PNG')).name).toBe('moya-semya.png');
+  expect((await grab(page, dir, 'PDF')).name).toBe('moya-semya.pdf');
+  expect((await grab(page, dir, 'SVG')).name).toBe('moya-semya.svg');
+  expect(requests.some((u) => /jspdf/.test(u)), 'the pdf chunk was really loaded').toBe(true);
+  expect(requests.some((u) => /svg2pdf/.test(u)), 'the svg2pdf chunk was really loaded').toBe(true);
   await dropdown(page).locator('summary').click();
   const [dl] = await Promise.all([page.waitForEvent('download'), menuItem(page, 'Сохранить в файл').click()]);
   expect(dl.suggestedFilename()).toBe('moya-semya.json');
