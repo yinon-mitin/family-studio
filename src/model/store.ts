@@ -110,6 +110,16 @@ export function openDoc(doc: CrestDoc): void {
   scheduleSave();
 }
 
+/**
+ * Back to an empty document on the start screen without scheduling an autosave,
+ * and cancelling a pending one, so erased data is not written back.
+ */
+export function resetDoc(): void {
+  clearTimeout(saveTimer);
+  lastKey = '';
+  setState({ doc: emptyDoc(), past: [], future: [], selected: null, pane: 'add', tab: 'shield', replace: false, screen: 'start', dialog: null });
+}
+
 export function goStart(): void {
   setState({ screen: 'start', selected: null, dialog: null });
 }
