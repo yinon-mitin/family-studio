@@ -1,0 +1,219 @@
+{
+  "app": "family-map",
+  "version": 1,
+  "doc": {
+    "title": "Example: a family map",
+    "nodes": [
+      {
+        "id": 1,
+        "shape": "square",
+        "x": -310,
+        "y": -240,
+        "size": 72,
+        "color": "#42a5f5",
+        "filled": true,
+        "dead": false,
+        "label": "Grandfather\n1938"
+      },
+      {
+        "id": 2,
+        "shape": "circle",
+        "x": -150,
+        "y": -240,
+        "size": 72,
+        "color": "#ec407a",
+        "filled": true,
+        "dead": false,
+        "label": "Grandmother\n1941"
+      },
+      {
+        "id": 3,
+        "shape": "square",
+        "x": 150,
+        "y": -240,
+        "size": 72,
+        "color": "#5c6bc0",
+        "filled": true,
+        "dead": true,
+        "label": "Grandfather\n1935"
+      },
+      {
+        "id": 4,
+        "shape": "circle",
+        "x": 310,
+        "y": -240,
+        "size": 72,
+        "color": "#ab47bc",
+        "filled": true,
+        "dead": false,
+        "label": "Grandmother\n1939"
+      },
+      {
+        "id": 5,
+        "shape": "square",
+        "x": -230,
+        "y": 0,
+        "size": 84,
+        "color": "#42a5f5",
+        "filled": true,
+        "dead": false,
+        "label": "Dad\n1966"
+      },
+      {
+        "id": 6,
+        "shape": "circle",
+        "x": 230,
+        "y": 0,
+        "size": 84,
+        "color": "#ab47bc",
+        "filled": true,
+        "dead": false,
+        "label": "Mom\n1968"
+      },
+      {
+        "id": 7,
+        "shape": "circle",
+        "x": -90,
+        "y": 250,
+        "size": 84,
+        "color": "#ef5350",
+        "filled": true,
+        "dead": false,
+        "label": "Daughter\n1994"
+      },
+      {
+        "id": 8,
+        "shape": "square",
+        "x": 90,
+        "y": 250,
+        "size": 84,
+        "color": "#26a69a",
+        "filled": true,
+        "dead": false,
+        "label": "Son\n1997"
+      },
+      {
+        "id": 9,
+        "shape": "hexagon",
+        "x": 430,
+        "y": 20,
+        "size": 64,
+        "color": "#fdd835",
+        "filled": false,
+        "dead": false,
+        "label": "Work"
+      },
+      {
+        "id": 10,
+        "shape": "star",
+        "x": -430,
+        "y": 20,
+        "size": 64,
+        "color": "#ff9800",
+        "filled": true,
+        "dead": false,
+        "label": "Family\nfriend"
+      }
+    ],
+    "links": [
+      {
+        "id": 101,
+        "from": 1,
+        "to": 2,
+        "style": "solid",
+        "color": "#263238"
+      },
+      {
+        "id": 102,
+        "from": 3,
+        "to": 4,
+        "style": "solid",
+        "color": "#263238"
+      },
+      {
+        "id": 103,
+        "from": 1,
+        "to": 5,
+        "style": "solid",
+        "color": "#263238"
+      },
+      {
+        "id": 104,
+        "from": 2,
+        "to": 5,
+        "style": "solid",
+        "color": "#263238"
+      },
+      {
+        "id": 105,
+        "from": 3,
+        "to": 6,
+        "style": "solid",
+        "color": "#263238"
+      },
+      {
+        "id": 106,
+        "from": 4,
+        "to": 6,
+        "style": "solid",
+        "color": "#263238"
+      },
+      {
+        "id": 107,
+        "from": 5,
+        "to": 6,
+        "style": "solid",
+        "color": "#263238"
+      },
+      {
+        "id": 108,
+        "from": 7,
+        "to": 5,
+        "style": "solid",
+        "color": "#263238"
+      },
+      {
+        "id": 109,
+        "from": 7,
+        "to": 6,
+        "style": "double",
+        "color": "#263238"
+      },
+      {
+        "id": 110,
+        "from": 8,
+        "to": 5,
+        "style": "zigzag",
+        "color": "#c62828"
+      },
+      {
+        "id": 111,
+        "from": 8,
+        "to": 6,
+        "style": "solid",
+        "color": "#263238"
+      },
+      {
+        "id": 112,
+        "from": 7,
+        "to": 8,
+        "style": "dashed",
+        "color": "#607d8b"
+      },
+      {
+        "id": 113,
+        "from": 6,
+        "to": 9,
+        "style": "arrow",
+        "color": "#ff9800"
+      },
+      {
+        "id": 114,
+        "from": 10,
+        "to": 5,
+        "style": "dashed",
+        "color": "#ff9800"
+      }
+    ]
+  }
+}

@@ -1,0 +1,189 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Схема семьи — конструктор</title>
+  <meta name="description" content="Family diagram builder for therapy and counselling practice: shapes, colours, sizes, links and export to PNG, SVG, PDF and JSON.">
+  <meta name="theme-color" content="#ffffff">
+  <link rel="icon" href="favicon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<div class="app">
+
+  <header class="topbar">
+    <h1 class="brand">
+      <img src="favicon.svg" alt="" width="28" height="28">
+      <span data-i18n="appName">Схема семьи</span>
+    </h1>
+    <input id="doc-title" class="title-input" type="text" maxlength="80" autocomplete="off"
+           data-i18n-placeholder="titlePlaceholder" data-i18n-aria="titlePlaceholder">
+    <div class="top-actions">
+      <button type="button" id="btn-undo" class="icon-btn" data-icon="undo" data-i18n-title="undo" disabled></button>
+      <button type="button" id="btn-redo" class="icon-btn" data-icon="redo" data-i18n-title="redo" disabled></button>
+      <button type="button" id="btn-new" class="icon-btn" data-icon="file" data-i18n-title="newDoc"></button>
+      <button type="button" id="btn-open" class="icon-btn" data-icon="upload" data-i18n-title="open"></button>
+      <button type="button" id="btn-export" class="btn primary" data-i18n-title="export">
+        <span class="ico-slot" data-icon="download"></span>
+        <span class="btn-label" data-i18n="export">Экспорт</span>
+      </button>
+      <select id="lang" class="lang-select" data-i18n-title="language">
+        <option value="ru">RU</option>
+        <option value="en">EN</option>
+      </select>
+    </div>
+    <input type="file" id="file-input" accept=".json,application/json" hidden>
+  </header>
+
+  <main class="workspace">
+
+    <nav class="palette" id="palette" data-i18n-aria="palette">
+      <section class="group">
+        <h2 class="group-title" data-i18n="gTools">Инструменты</h2>
+        <div class="row">
+          <button type="button" class="tile" data-tool="select" aria-pressed="true">
+            <span class="ico-slot" data-icon="pointer"></span>
+            <span class="btn-label" data-i18n="toolSelect">Выбор</span>
+          </button>
+          <button type="button" class="tile" data-tool="link" aria-pressed="false">
+            <span class="ico-slot" data-icon="link"></span>
+            <span class="btn-label" data-i18n="toolLink">Связь</span>
+          </button>
+        </div>
+      </section>
+      <section class="group">
+        <h2 class="group-title" data-i18n="gShapes">Фигуры</h2>
+        <div class="shape-grid" id="shape-list"></div>
+      </section>
+      <section class="group">
+        <h2 class="group-title" data-i18n="gColor">Цвет новой фигуры</h2>
+        <div class="swatches" id="def-colors"></div>
+      </section>
+      <section class="group">
+        <h2 class="group-title" data-i18n="gSize">Размер новой фигуры</h2>
+        <div class="row" id="def-sizes"></div>
+      </section>
+      <section class="group">
+        <h2 class="group-title" data-i18n="gLinks">Тип связи</h2>
+        <div class="link-list" id="link-styles"></div>
+      </section>
+    </nav>
+
+    <section class="stage" id="stage">
+      <svg id="canvas" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+            <circle cx="1" cy="1" r="1.3" fill="#cfd8dc"/>
+          </pattern>
+        </defs>
+        <rect width="100%" height="100%" fill="#ffffff"/>
+        <rect width="100%" height="100%" fill="url(#grid)"/>
+        <g id="world"></g>
+      </svg>
+
+      <p class="empty-hint" id="empty-hint" data-i18n="emptyHint">Выберите фигуру на панели, чтобы добавить её на схему</p>
+
+      <div class="link-banner" id="link-banner" hidden>
+        <span id="link-banner-text"></span>
+        <button type="button" id="link-done" class="btn small" data-i18n="done">Готово</button>
+      </div>
+
+      <div class="zoom-controls">
+        <button type="button" id="zoom-in" class="icon-btn" data-icon="plus" data-i18n-title="zoomIn"></button>
+        <button type="button" id="zoom-out" class="icon-btn" data-icon="minus" data-i18n-title="zoomOut"></button>
+        <button type="button" id="zoom-fit" class="icon-btn" data-icon="fit" data-i18n-title="zoomFit"></button>
+      </div>
+
+      <a class="repo-link" href="https://github.com/yinon-mitin/family-map" target="_blank" rel="noopener noreferrer" data-i18n-title="sourceCode">
+        <svg viewBox="0 0 16 16" width="18" height="18" fill="currentColor" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+      </a>
+
+      <div class="toast" id="toast" role="status" aria-live="polite"></div>
+    </section>
+
+    <aside class="inspector" id="inspector" data-i18n-aria="inspector">
+      <div id="insp-empty" class="insp-empty">
+        <p data-i18n="inspectorEmpty">Выберите фигуру или линию, чтобы изменить её.</p>
+        <p class="muted" data-i18n="tipNav">Перетаскивайте фигуры; колесо мыши или щипок двумя пальцами меняет масштаб, перетаскивание фона сдвигает схему.</p>
+        <p class="muted" data-i18n="privacy">Данные хранятся только в вашем браузере и никуда не отправляются.</p>
+      </div>
+
+      <div id="insp-body" hidden>
+        <div class="insp-head">
+          <h2 id="insp-title"></h2>
+          <button type="button" id="insp-close" class="icon-btn" data-icon="close" data-i18n-title="close"></button>
+        </div>
+
+        <div id="node-panel">
+          <label class="field">
+            <span class="field-name" data-i18n="fLabel">Подпись</span>
+            <textarea id="f-label" rows="2" maxlength="200"></textarea>
+          </label>
+          <div class="field" id="f-shape-field">
+            <span class="field-name" data-i18n="fShape">Форма</span>
+            <div class="chip-row" id="f-shapes"></div>
+          </div>
+          <div class="field">
+            <span class="field-name" data-i18n="fColor">Цвет</span>
+            <div class="swatches" id="f-colors"></div>
+          </div>
+          <label class="field">
+            <span class="field-name" data-i18n="fSize">Размер</span>
+            <input type="range" id="f-size" min="30" max="220" step="2">
+          </label>
+          <div class="checks" id="f-checks">
+            <label class="check"><input type="checkbox" id="f-filled"> <span data-i18n="fFilled">Закрашена</span></label>
+            <label class="check"><input type="checkbox" id="f-dead"> <span data-i18n="fDead">Перечёркнута</span></label>
+          </div>
+          <div class="btn-row">
+            <button type="button" id="b-link-from" class="btn small"><span class="ico-slot" data-icon="link"></span><span data-i18n="linkFrom">Связать с…</span></button>
+            <button type="button" id="b-dup" class="btn small"><span class="ico-slot" data-icon="copy"></span><span data-i18n="duplicate">Дублировать</span></button>
+            <button type="button" id="b-del" class="btn small danger"><span class="ico-slot" data-icon="trash"></span><span data-i18n="delete">Удалить</span></button>
+          </div>
+        </div>
+
+        <div id="link-panel" hidden>
+          <div class="field">
+            <span class="field-name" data-i18n="fLineType">Тип линии</span>
+            <div class="chip-row" id="l-styles"></div>
+          </div>
+          <div class="field">
+            <span class="field-name" data-i18n="fColor">Цвет</span>
+            <div class="swatches" id="l-colors"></div>
+          </div>
+          <div class="btn-row">
+            <button type="button" id="l-reverse" class="btn small"><span class="ico-slot" data-icon="swap"></span><span data-i18n="reverse">Развернуть</span></button>
+            <button type="button" id="l-del" class="btn small danger"><span class="ico-slot" data-icon="trash"></span><span data-i18n="delete">Удалить</span></button>
+          </div>
+        </div>
+      </div>
+    </aside>
+  </main>
+</div>
+
+<dialog id="export-dialog" class="dialog" aria-labelledby="export-title">
+  <h2 id="export-title" data-i18n="exportTitle">Экспорт</h2>
+  <div class="export-list">
+    <button type="button" class="export-item" data-export="png">
+      <strong>PNG</strong><span data-i18n="exportPng">Изображение для чата, почты и презентаций</span>
+    </button>
+    <button type="button" class="export-item" data-export="svg">
+      <strong>SVG</strong><span data-i18n="exportSvg">Векторное изображение, можно дорабатывать в редакторах</span>
+    </button>
+    <button type="button" class="export-item" data-export="pdf">
+      <strong>PDF</strong><span data-i18n="exportPdf">Документ для печати и отправки</span>
+    </button>
+    <button type="button" class="export-item" data-export="json">
+      <strong>JSON</strong><span data-i18n="exportJson">Проект — чтобы открыть и продолжить работу позже</span>
+    </button>
+  </div>
+  <div class="dialog-actions">
+    <button type="button" class="btn" id="export-close" data-i18n="close">Закрыть</button>
+  </div>
+</dialog>
+
+<script src="js/i18n.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
