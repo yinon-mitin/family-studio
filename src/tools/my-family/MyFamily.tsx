@@ -1,10 +1,11 @@
 import { useEffect } from 'preact/hooks';
 import { useDocStore } from '../../core/useDocStore.ts';
 import { t, useLang } from '../../i18n/index.ts';
+import { FileMenu } from './FileMenu.tsx';
 import { Panel } from './Panel.tsx';
 import { Sheet } from './Sheet.tsx';
 import { shortcutOf } from './shortcuts.ts';
-import { getUi, newDrawing, patch, redo, remove, select, store, undo, useUi } from './store.ts';
+import { getUi, patch, redo, remove, select, store, undo, useUi } from './store.ts';
 
 const ARROWS: Record<string, [number, number]> = { ArrowLeft: [-1, 0], ArrowRight: [1, 0], ArrowUp: [0, -1], ArrowDown: [0, 1] };
 
@@ -46,10 +47,6 @@ function useShortcuts() {
   }, []);
 }
 
-function askNewDrawing(): void {
-  if (store.get().doc.figures.length === 0 || window.confirm(t('mf.newAsk'))) newDrawing();
-}
-
 export function MyFamily() {
   useLang(); // texts are taken again when the language changes
   useShortcuts();
@@ -62,7 +59,9 @@ export function MyFamily() {
       <div class="mf-bar">
         <button type="button" class="btn" onClick={undo} disabled={!canUndo} title={t('header.undoTitle')}>{t('header.undo')}</button>
         <button type="button" class="btn" onClick={redo} disabled={!canRedo} title={t('header.redoTitle')}>{t('header.redo')}</button>
-        <button type="button" class="btn mf-new" onClick={askNewDrawing}>{t('mf.new')}</button>
+        <div class="mf-file">
+          <FileMenu />
+        </div>
       </div>
       <main class="mf-stage">
         <Sheet />

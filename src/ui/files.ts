@@ -1,3 +1,4 @@
+import { MAX_FILE_BYTES } from '../core/fileLimit.ts';
 import { download, fileName } from '../export/download.ts';
 import { clearAuto, fromFile, toFile } from '../model/serialize.ts';
 import { emptyDoc } from '../model/doc.ts';
@@ -11,7 +12,7 @@ export function saveFile(): void {
 }
 
 export async function openFile(file: File): Promise<void> {
-  if (file.size > 5_000_000) {
+  if (file.size > MAX_FILE_BYTES) {
     toast(t('file.tooLarge'));
     return;
   }

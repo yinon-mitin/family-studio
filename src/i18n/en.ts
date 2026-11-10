@@ -57,6 +57,12 @@ export const en: Record<Key, string> = {
   'mf.next': 'Next shape',
   'mf.new': 'New drawing',
   'mf.newAsk': 'Start a new drawing? The current one will be replaced.',
+  'mf.openAsk': 'Open the file? The current drawing will be replaced.',
+  'mf.saved': 'Drawing saved to a file',
+  'mf.notProject': 'Could not open it: this is not a My Family project file',
+  'mf.tooLarge': 'The file is too large to be a My Family project',
+  'mf.exportTitle': 'Download the drawing',
+  'mf.exportEmpty': 'The sheet is empty so far. Add at least one shape.',
   'lang.label': 'Language',
 
   // start screen

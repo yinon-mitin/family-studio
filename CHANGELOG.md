@@ -6,6 +6,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- "My Family" file menu and downloads: "File" offers New drawing, Save to a file (JSON, `moya-semya.json`) and Open from a file (replaces the drawing after confirmation; a crest file, a damaged file or one over 5 MB is refused with a message and nothing changes; the same file can be opened twice); "Download" opens a dialog with PNG (1240 x 1753, or 1753 x 1240 for a landscape sheet), SVG or PDF (A4 in the sheet's orientation), disabled with a note for an empty sheet, busy while working and showing an error message without closing on failure. The menu closes with Escape or a click outside it.
 - "My Family" shape properties: when a shape is selected, the panel offers 13 colours (named, with a visible chosen state and a framed white), size and rotation sliders (rotation in steps of 15 degrees), five textures with previews or "Plain", Up / Down / To front / To back, Duplicate and Delete. Dragging a slider is one undo step.
 - "My Family" saves the last change at once when the page is hidden or closed (`pagehide`, tab switch), instead of waiting for the 400 ms pause; Backspace also deletes the selected shape.
 - "My Family" tool, a second tool in the shell: an A4 sheet that fits the screen (landscape on wide screens, portrait on phones) where circles, squares, rectangles and triangles are added with buttons and dragged with a finger or mouse; arrows move the selected shape (Shift for bigger steps), Delete removes it, Ctrl+Z / Ctrl+Y undo and redo, "Previous / Next shape" reach even a fully covered shape, "New drawing" starts over, and the drawing is saved on the device automatically. The groundwork from the earlier tasks (document history store, sheet model, validated autosave and file format, SVG renderer, SVG/PNG/PDF export code) is part of this tool.
@@ -17,6 +18,7 @@ The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - Repository created by merging `family-crest` (history kept at the root) and `family-map` (history imported under `legacy/family-map`).
 
 ### Changed
+- "My Family": "New drawing" moved from the top bar into the "File" menu (it still asks before replacing a drawing that has shapes). The 5 MB file limit now lives in one shared constant used by both tools.
 - The default tool is now My Family (it is registered before the family crest); the crest opens with `?tool=crest`, and its end-to-end tests do the same.
 - The family crest editor now lives inside the shell; its language switch moved from the editor header and the start screen to the shell bar.
 - Project renamed to Family Studio: package name, site base path (`/family-studio/`), README and source link.

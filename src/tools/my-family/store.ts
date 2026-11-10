@@ -155,6 +155,12 @@ export function newDrawing(): void {
   setUi({ selected: null });
 }
 
+/** Opens a drawing that was read from a file: it replaces the current one, history and selection start over, the file's orientation stays. */
+export function openDrawing(doc: MyFamilyDoc): void {
+  store.replace(doc);
+  setUi({ selected: null });
+}
+
 /** Erases the stored drawing and starts an empty one without writing anything back. */
 export function clearData(): void {
   clearTimeout(saveTimer);

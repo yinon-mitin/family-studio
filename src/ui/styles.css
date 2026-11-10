@@ -1148,8 +1148,15 @@ input[type='range'] {
   padding: 6px 10px;
 }
 
-.mf-new {
+.mf-file {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   margin-left: auto;
+}
+
+.mf-menu .menu-list {
+  min-width: 200px;
 }
 
 .mf-stage {

@@ -1,3 +1,7 @@
+import { execFileSync } from 'node:child_process';
+import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
 
 const KEY = 'family-studio:my-family:autosave:v1';
@@ -10,6 +14,14 @@ const shape = (page: Page, name: string) => page.getByRole('button', { name, exa
 async function open(page: Page) {
   await page.goto('./?only=my-family');
   await expect(sheet(page)).toBeVisible();
+}
+
+const fileMenu = (page: Page) => page.locator('.mf-bar details.menu');
+const menuItem = (page: Page, name: string) => fileMenu(page).getByRole('button', { name, exact: true });
+/** Starts a new drawing through the file menu (the only place for it). */
+async function chooseNewDrawing(page: Page) {
+  await fileMenu(page).locator('summary').click();
+  await menuItem(page, 'Новый рисунок').click();
 }
 
 async function autosaved(page: Page) {
@@ -56,7 +68,7 @@ test('ориентация листа по устройству', async ({ page 
 
   // a new drawing picks the orientation again
   page.once('dialog', (d) => d.accept());
-  await page.getByRole('button', { name: 'Новый рисунок' }).click();
+  await chooseNewDrawing(page);
   await expect(sheet(page)).toHaveAttribute('viewBox', other);
   await expect(figures(page)).toHaveCount(0);
 });
@@ -65,7 +77,7 @@ test('новый рисунок: отказ в подтверждении нич
   await open(page);
   await shape(page, 'Круг').click();
   page.once('dialog', (d) => d.dismiss());
-  await page.getByRole('button', { name: 'Новый рисунок' }).click();
+  await chooseNewDrawing(page);
   await expect(figures(page)).toHaveCount(1);
 });
 
@@ -182,11 +194,21 @@ test('восстановление после перезагрузки', async (
 
 test('кнопки не меньше 40 пикселей и лист помещается на экране', async ({ page }) => {
   await open(page);
-  for (const name of ['Круг', 'Квадрат', 'Прямоугольник', 'Треугольник', 'Предыдущая фигура', 'Следующая фигура', 'Новый рисунок']) {
+  for (const name of ['Круг', 'Квадрат', 'Прямоугольник', 'Треугольник', 'Предыдущая фигура', 'Следующая фигура']) {
     const box = (await page.getByRole('button', { name, exact: true }).boundingBox())!;
     expect(box.width, name).toBeGreaterThanOrEqual(40);
     expect(box.height, name).toBeGreaterThanOrEqual(40);
   }
+  // the file menu: its button, the download button and every menu item
+  const barButtons = [fileMenu(page).locator('summary'), page.locator('.mf-bar').getByRole('button', { name: 'Скачать', exact: true })];
+  await fileMenu(page).locator('summary').click();
+  for (const name of ['Новый рисунок', 'Сохранить в файл', 'Открыть из файла']) barButtons.push(menuItem(page, name));
+  for (const [i, b] of barButtons.entries()) {
+    const box = (await b.boundingBox())!;
+    expect(box.height, `bar ${i}`).toBeGreaterThanOrEqual(40);
+    expect(box.width, `bar ${i}`).toBeGreaterThanOrEqual(40);
+  }
+  await fileMenu(page).locator('summary').click();
   const s = (await sheet(page).boundingBox())!;
   const { width, height } = page.viewportSize()!;
   expect(s.width).toBeGreaterThan(200);
@@ -463,4 +485,252 @@ test('на телефоне лист не меняет размер и фигу�
   const moved = await centre(page, 0);
   expect(Math.abs(moved.x - (c.x + 30))).toBeLessThan(1.5);
   expect(Math.abs(moved.y - (c.y + 20))).toBeLessThan(1.5);
+});
+
+// ---------- file menu, export dialog ----------
+
+const exportDialog = (page: Page) => page.getByRole('dialog', { name: 'Скачать рисунок' });
+const goButton = (page: Page) => exportDialog(page).getByRole('button', { name: 'Скачать', exact: true });
+const dropdown = (page: Page) => page.locator('.mf-bar details.menu');
+const portrait = (page: Page) => isMobile(page); // phones get a portrait sheet, wide screens a landscape one
+
+async function threeFigures(page: Page) {
+  await shape(page, 'Круг').click();
+  await shape(page, 'Квадрат').click();
+  await shape(page, 'Треугольник').click();
+  await page.getByRole('group', { name: 'Фактура' }).getByRole('button', { name: 'Штриховка' }).click();
+  await expect(figures(page)).toHaveCount(3);
+}
+
+async function grab(page: Page, dir: string, format: 'PNG' | 'SVG' | 'PDF') {
+  await page.locator('.mf-bar').getByRole('button', { name: 'Скачать', exact: true }).click();
+  await expect(exportDialog(page)).toBeVisible();
+  await exportDialog(page).getByRole('radio', { name: new RegExp(format) }).click();
+  const [dl] = await Promise.all([page.waitForEvent('download'), goButton(page).click()]);
+  const path = join(dir, dl.suggestedFilename());
+  await dl.saveAs(path);
+  await expect(exportDialog(page)).toHaveCount(0);
+  return { path, name: dl.suggestedFilename() };
+}
+
+/** Reads a binary PPM (P6) and counts the pixels that are not pure white. */
+function nonWhitePixels(ppm: Buffer): number {
+  let pos = 0;
+  const token = () => {
+    while (/\s/.test(String.fromCharCode(ppm[pos]))) pos++;
+    let out = '';
+    while (!/\s/.test(String.fromCharCode(ppm[pos]))) out += String.fromCharCode(ppm[pos++]);
+    return out;
+  };
+  expect(token()).toBe('P6');
+  const w = Number(token());
+  const h = Number(token());
+  token(); // max value
+  pos++; // one whitespace byte before the pixels
+  let n = 0;
+  for (let i = 0; i < w * h; i++) {
+    const o = pos + i * 3;
+    if (ppm[o] !== 255 || ppm[o + 1] !== 255 || ppm[o + 2] !== 255) n++;
+  }
+  return n;
+}
+
+test('экспорт: SVG, PNG и PDF из диалога', async ({ page }) => {
+  await open(page);
+  await threeFigures(page);
+  const dir = mkdtempSync(join(tmpdir(), 'semya-'));
+
+  const svgFile = await grab(page, dir, 'SVG');
+  expect(svgFile.name).toBe('moya-semya.svg');
+  const svg = readFileSync(svgFile.path, 'utf8');
+  expect(svg).not.toContain('<pattern');
+  expect(svg).not.toContain('<text');
+  expect(svg.match(/data-fig=/g)).toHaveLength(3);
+
+  const pngFile = await grab(page, dir, 'PNG');
+  expect(pngFile.name).toBe('moya-semya.png');
+  const png = readFileSync(pngFile.path);
+  expect(png.subarray(1, 4).toString()).toBe('PNG');
+  expect(png.subarray(12, 16).toString()).toBe('IHDR');
+  expect([png.readUInt32BE(16), png.readUInt32BE(20)]).toEqual(portrait(page) ? [1240, 1753] : [1753, 1240]);
+
+  const pdfFile = await grab(page, dir, 'PDF');
+  expect(pdfFile.name).toBe('moya-semya.pdf');
+  const info = execFileSync('pdfinfo', [pdfFile.path]).toString();
+  expect(info).toMatch(/Pages:\s+1\b/);
+  // pdfinfo rounds differently between poppler versions (595.28 or 595.276), so compare numbers, not text
+  const [, pw, ph] = info.match(/Page size:\s+([\d.]+) x ([\d.]+) pts/)!;
+  const [ew, eh] = portrait(page) ? [595.276, 841.89] : [841.89, 595.276];
+  expect(Math.abs(Number(pw) - ew)).toBeLessThan(0.01);
+  expect(Math.abs(Number(ph) - eh)).toBeLessThan(0.01);
+  expect(info).toMatch(/\(A4\)/);
+  // The page is not blank: three figures (one textured) leave coloured pixels on the white sheet.
+  const out = join(dir, 'page');
+  execFileSync('pdftoppm', ['-r', '50', '-f', '1', '-l', '1', pdfFile.path, out]);
+  const ppm = readFileSync(`${out}-1.ppm`);
+  expect(nonWhitePixels(ppm)).toBeGreaterThan(1500);
+  writeFileSync(join(dir, 'where.txt'), dir);
+});
+
+test('экспорт: пустой лист не скачивается', async ({ page }) => {
+  await open(page);
+  await page.locator('.mf-bar').getByRole('button', { name: 'Скачать', exact: true }).click();
+  await expect(exportDialog(page)).toBeVisible();
+  await expect(exportDialog(page).getByText('Лист пока пустой. Добавьте хотя бы одну фигуру.')).toBeVisible();
+  await expect(goButton(page)).toBeDisabled();
+  await page.keyboard.press('Escape');
+  await expect(exportDialog(page)).toHaveCount(0);
+});
+
+test('экспорт: сбой показывает сообщение, диалог остаётся рабочим', async ({ page }) => {
+  await page.addInitScript(() => {
+    const real = URL.createObjectURL.bind(URL);
+    (window as unknown as { __fail: boolean }).__fail = true;
+    URL.createObjectURL = (obj: Blob | MediaSource) => {
+      if ((window as unknown as { __fail: boolean }).__fail) throw new Error('boom');
+      return real(obj);
+    };
+  });
+  await open(page);
+  await shape(page, 'Круг').click();
+  await page.locator('.mf-bar').getByRole('button', { name: 'Скачать', exact: true }).click();
+  await exportDialog(page).getByRole('radio', { name: /SVG/ }).click();
+  await goButton(page).click();
+  await expect(page.getByRole('status')).toHaveText('Не удалось создать файл. Попробуйте ещё раз или выберите другой формат.');
+  await expect(exportDialog(page)).toBeVisible();
+  await expect(goButton(page)).toBeEnabled();
+  // and it works again once the cause is gone
+  await page.evaluate(() => ((window as unknown as { __fail: boolean }).__fail = false));
+  const [dl] = await Promise.all([page.waitForEvent('download'), goButton(page).click()]);
+  expect(dl.suggestedFilename()).toBe('moya-semya.svg');
+});
+
+test('меню «Файл»: закрывается по Escape и по щелчку снаружи', async ({ page }) => {
+  await open(page);
+  await dropdown(page).locator('summary').click();
+  await expect(menuItem(page, 'Сохранить в файл')).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(menuItem(page, 'Сохранить в файл')).toBeHidden();
+  await dropdown(page).locator('summary').click();
+  await expect(menuItem(page, 'Сохранить в файл')).toBeVisible();
+  await page.locator('svg.mf-sheet').click({ position: { x: 5, y: 5 } });
+  await expect(menuItem(page, 'Сохранить в файл')).toBeHidden();
+});
+
+test('файл: сохранить, начать заново и открыть — фигуры и ориентация возвращаются', async ({ page }) => {
+  await open(page);
+  await threeFigures(page);
+  const viewBox = await sheet(page).getAttribute('viewBox');
+  const before = await order(page);
+  const dir = mkdtempSync(join(tmpdir(), 'semya-'));
+
+  await dropdown(page).locator('summary').click();
+  const [dl] = await Promise.all([page.waitForEvent('download'), menuItem(page, 'Сохранить в файл').click()]);
+  expect(dl.suggestedFilename()).toBe('moya-semya.json');
+  const path = join(dir, 'moya-semya.json');
+  await dl.saveAs(path);
+  await expect(page.getByRole('status')).toHaveText('Рисунок сохранён в файл');
+  const saved = JSON.parse(readFileSync(path, 'utf8'));
+  expect(saved.app).toBe('family-studio-my-family');
+
+  // the file keeps the orientation of the moment, not the screen's
+  saved.doc.orientation = viewBox === '0 0 1000 1414' ? 'landscape' : 'portrait';
+  const other = viewBox === '0 0 1000 1414' ? '0 0 1414 1000' : '0 0 1000 1414';
+  const flipped = join(dir, 'flipped.json');
+  writeFileSync(flipped, JSON.stringify(saved));
+
+  page.once('dialog', (d) => d.accept());
+  await chooseNewDrawing(page);
+  await expect(figures(page)).toHaveCount(0);
+
+  await page.locator('input[type=file]').setInputFiles(path);
+  await expect(figures(page)).toHaveCount(3);
+  expect(await order(page)).toEqual(before);
+  await expect(sheet(page)).toHaveAttribute('viewBox', viewBox!);
+
+  // the same file can be opened twice in a row (a figure is added first so that opening asks)
+  await shape(page, 'Круг').click();
+  page.once('dialog', (d) => d.accept());
+  await page.locator('input[type=file]').setInputFiles(path);
+  await expect(figures(page)).toHaveCount(3);
+
+  // history of the opened drawing starts empty, orientation comes from the file
+  await expect(page.getByRole('button', { name: /Отменить/ })).toBeDisabled();
+  page.once('dialog', (d) => d.accept());
+  await page.locator('input[type=file]').setInputFiles(flipped);
+  await expect(sheet(page)).toHaveAttribute('viewBox', other);
+  await expect(figures(page)).toHaveCount(3);
+  const stored = await storedWhere(page, (d) => d.figures.length === 3);
+  expect(stored.figures).toHaveLength(3);
+});
+
+test('файл: открытие просит подтверждение, отказ ничего не меняет', async ({ page }) => {
+  await open(page);
+  await shape(page, 'Круг').click();
+  await dropdown(page).locator('summary').click();
+  const [dl] = await Promise.all([page.waitForEvent('download'), menuItem(page, 'Сохранить в файл').click()]);
+  const path = join(mkdtempSync(join(tmpdir(), 'semya-')), 'a.json');
+  await dl.saveAs(path);
+  await shape(page, 'Квадрат').click();
+  await expect(figures(page)).toHaveCount(2);
+  let asked = '';
+  page.once('dialog', (d) => {
+    asked = d.message();
+    void d.dismiss();
+  });
+  await page.locator('input[type=file]').setInputFiles(path);
+  await expect.poll(() => asked).toBe('Открыть файл? Текущий рисунок будет заменён.');
+  await expect(figures(page)).toHaveCount(2);
+});
+
+test('файл: чужие и слишком большие файлы отклоняются, лист не меняется', async ({ page }) => {
+  await open(page);
+  await shape(page, 'Круг').click();
+  const dir = mkdtempSync(join(tmpdir(), 'semya-'));
+  const input = page.locator('input[type=file]');
+  let asked = false;
+  page.on('dialog', (d) => {
+    asked = true;
+    void d.dismiss();
+  });
+
+  const crest = join(dir, 'crest.json');
+  writeFileSync(crest, JSON.stringify({ app: 'family-crest', version: 1, doc: { layers: [] } }));
+  await input.setInputFiles(crest);
+  await expect(page.getByRole('status')).toHaveText('Не удалось открыть: это не файл проекта «Моей семьи»');
+  await expect(figures(page)).toHaveCount(1);
+
+  const junk = join(dir, 'junk.json');
+  writeFileSync(junk, '{ not json');
+  await input.setInputFiles(junk);
+  await expect(page.getByRole('status')).toHaveText('Не удалось открыть: это не файл проекта «Моей семьи»');
+
+  const big = join(dir, 'big.json');
+  writeFileSync(big, Buffer.alloc(5_000_001, 32));
+  await input.setInputFiles(big);
+  await expect(page.getByRole('status')).toHaveText('Файл слишком большой для проекта «Моей семьи»');
+  await expect(figures(page)).toHaveCount(1);
+  expect(asked).toBe(false); // nothing valid was read, so nothing asked for consent
+});
+
+test('новый рисунок: согласие очищает лист и историю', async ({ page }) => {
+  await open(page);
+  await shape(page, 'Круг').click();
+  await shape(page, 'Квадрат').click();
+  let asked = '';
+  page.once('dialog', (d) => {
+    asked = d.message();
+    void d.accept();
+  });
+  await chooseNewDrawing(page);
+  expect(asked).toBe('Начать новый рисунок? Текущий будет заменён.');
+  await expect(figures(page)).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /Отменить/ })).toBeDisabled();
+  await page.keyboard.press('Control+z');
+  await expect(figures(page)).toHaveCount(0);
+});
+
+test('кнопка «Новый рисунок» вне меню не осталась', async ({ page }) => {
+  await open(page);
+  await expect(page.locator('.mf-bar').getByRole('button', { name: 'Новый рисунок', exact: true })).toHaveCount(0);
 });

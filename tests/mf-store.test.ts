@@ -223,6 +223,24 @@ describe('my-family store: editing actions', () => {
   });
 });
 
+describe('my-family store: openDrawing', () => {
+  it('replaces the drawing, clears history and selection, keeps the orientation of the file and autosaves', async () => {
+    const { addFigure, newDoc } = await import('../src/tools/my-family/model.ts');
+    s.add('circle');
+    s.add('square');
+    const incoming = addFigure(newDoc('portrait'), 'triangle').doc; // the test screen is landscape
+    s.openDrawing(incoming);
+    const snap = s.store.get();
+    expect(snap.doc).toBe(incoming);
+    expect(snap.doc.orientation).toBe('portrait');
+    expect(snap.past).toEqual([]);
+    expect(snap.future).toEqual([]);
+    expect(s.getUi().selected).toBeNull();
+    vi.advanceTimersByTime(400);
+    expect(JSON.parse(storage.get(STORAGE_KEY)!).figures).toHaveLength(1);
+  });
+});
+
 describe('my-family store: autosave flush', () => {
   it('flushAutosave writes a pending change at once and stops the timer', () => {
     s.add('circle');
