@@ -9,9 +9,9 @@ const listeners = new Set<() => void>();
 
 export const getTool = (): ToolId => current;
 
-/** Switches the current tool and records it in the address without adding a history entry. */
+/** Switches the current tool (an unregistered id is ignored) and records it in the address without adding a history entry. */
 export function setTool(id: ToolId): void {
-  if (id === current) return;
+  if (id === current || !ids.includes(id)) return; // an id without a registered tool changes nothing
   current = id;
   try {
     history.replaceState(null, '', toolUrl(location.search, id));

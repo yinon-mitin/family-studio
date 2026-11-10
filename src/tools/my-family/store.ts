@@ -149,28 +149,39 @@ export function step(dir: 1 | -1): void {
 export const undo = (): void => store.undo();
 export const redo = (): void => store.redo();
 
+/**
+ * Replaces the drawing. A drawing with no figures is never stored, so the old stored one is erased at once and
+ * the pending save is cancelled: closing the page right now must not bring the replaced drawing back.
+ * A drawing with figures is autosaved as usual.
+ */
+function replaceDrawing(doc: MyFamilyDoc): void {
+  if (doc.figures.length > 0) {
+    store.replace(doc);
+  } else {
+    clearTimeout(saveTimer);
+    saveTimer = undefined;
+    clearAuto();
+    quiet = true;
+    try {
+      store.replace(doc);
+    } finally {
+      quiet = false;
+    }
+  }
+  setUi({ selected: null });
+}
+
 /** An empty sheet in the orientation that suits the screen now; the history starts over. */
 export function newDrawing(): void {
-  store.replace(newDoc(currentOrientation()));
-  setUi({ selected: null });
+  replaceDrawing(newDoc(currentOrientation()));
 }
 
 /** Opens a drawing that was read from a file: it replaces the current one, history and selection start over, the file's orientation stays. */
 export function openDrawing(doc: MyFamilyDoc): void {
-  store.replace(doc);
-  setUi({ selected: null });
+  replaceDrawing(doc);
 }
 
 /** Erases the stored drawing and starts an empty one without writing anything back. */
 export function clearData(): void {
-  clearTimeout(saveTimer);
-  saveTimer = undefined;
-  clearAuto();
-  quiet = true;
-  try {
-    store.replace(newDoc(currentOrientation()));
-  } finally {
-    quiet = false;
-  }
-  setUi({ selected: null });
+  replaceDrawing(newDoc(currentOrientation()));
 }

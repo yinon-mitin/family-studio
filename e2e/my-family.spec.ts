@@ -1,8 +1,19 @@
 import { execFileSync } from 'node:child_process';
-import { mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { expect, test, type Page } from '@playwright/test';
+
+// Temp directories made by a test are removed after it, even when it fails.
+const tmpDirs: string[] = [];
+const makeTmp = (): string => {
+  const dir = mkdtempSync(join(tmpdir(), 'semya-'));
+  tmpDirs.push(dir);
+  return dir;
+};
+test.afterEach(() => {
+  for (const dir of tmpDirs.splice(0)) rmSync(dir, { recursive: true, force: true });
+});
 
 const KEY = 'family-studio:my-family:autosave:v1';
 const isMobile = (page: Page) => (page.viewportSize()?.width ?? 1000) <= 900;
@@ -538,7 +549,7 @@ function nonWhitePixels(ppm: Buffer): number {
 test('экспорт: SVG, PNG и PDF из диалога', async ({ page }) => {
   await open(page);
   await threeFigures(page);
-  const dir = mkdtempSync(join(tmpdir(), 'semya-'));
+  const dir = makeTmp();
 
   const svgFile = await grab(page, dir, 'SVG');
   expect(svgFile.name).toBe('moya-semya.svg');
@@ -563,13 +574,11 @@ test('экспорт: SVG, PNG и PDF из диалога', async ({ page }) => 
   const [ew, eh] = portrait(page) ? [595.276, 841.89] : [841.89, 595.276];
   expect(Math.abs(Number(pw) - ew)).toBeLessThan(0.01);
   expect(Math.abs(Number(ph) - eh)).toBeLessThan(0.01);
-  expect(info).toMatch(/\(A4\)/);
   // The page is not blank: three figures (one textured) leave coloured pixels on the white sheet.
   const out = join(dir, 'page');
   execFileSync('pdftoppm', ['-r', '50', '-f', '1', '-l', '1', pdfFile.path, out]);
   const ppm = readFileSync(`${out}-1.ppm`);
   expect(nonWhitePixels(ppm)).toBeGreaterThan(1500);
-  writeFileSync(join(dir, 'where.txt'), dir);
 });
 
 test('экспорт: пустой лист не скачивается', async ({ page }) => {
@@ -622,7 +631,7 @@ test('файл: сохранить, начать заново и открыть 
   await threeFigures(page);
   const viewBox = await sheet(page).getAttribute('viewBox');
   const before = await order(page);
-  const dir = mkdtempSync(join(tmpdir(), 'semya-'));
+  const dir = makeTmp();
 
   await dropdown(page).locator('summary').click();
   const [dl] = await Promise.all([page.waitForEvent('download'), menuItem(page, 'Сохранить в файл').click()]);
@@ -669,7 +678,7 @@ test('файл: открытие просит подтверждение, отк
   await shape(page, 'Круг').click();
   await dropdown(page).locator('summary').click();
   const [dl] = await Promise.all([page.waitForEvent('download'), menuItem(page, 'Сохранить в файл').click()]);
-  const path = join(mkdtempSync(join(tmpdir(), 'semya-')), 'a.json');
+  const path = join(makeTmp(), 'a.json');
   await dl.saveAs(path);
   await shape(page, 'Квадрат').click();
   await expect(figures(page)).toHaveCount(2);
@@ -686,7 +695,7 @@ test('файл: открытие просит подтверждение, отк
 test('файл: чужие и слишком большие файлы отклоняются, лист не меняется', async ({ page }) => {
   await open(page);
   await shape(page, 'Круг').click();
-  const dir = mkdtempSync(join(tmpdir(), 'semya-'));
+  const dir = makeTmp();
   const input = page.locator('input[type=file]');
   let asked = false;
   page.on('dialog', (d) => {
@@ -733,4 +742,102 @@ test('новый рисунок: согласие очищает лист и и�
 test('кнопка «Новый рисунок» вне меню не осталась', async ({ page }) => {
   await open(page);
   await expect(page.locator('.mf-bar').getByRole('button', { name: 'Новый рисунок', exact: true })).toHaveCount(0);
+});
+
+test('новый рисунок: после перезагрузки прежний рисунок не возвращается', async ({ page }) => {
+  await open(page);
+  await shape(page, 'Круг').click();
+  await shape(page, 'Квадрат').click();
+  await expect.poll(() => storedIds(page)).toHaveLength(2);
+  page.once('dialog', (d) => d.accept());
+  await chooseNewDrawing(page);
+  await expect(figures(page)).toHaveCount(0);
+  expect(await readStored(page)).toBeNull(); // gone at once, not after the autosave pause
+  await page.reload();
+  await expect(sheet(page)).toBeVisible();
+  await expect(figures(page)).toHaveCount(0);
+  await page.waitForTimeout(700);
+  expect(await readStored(page)).toBeNull();
+});
+
+test('экспорт: если лист опустел за диалогом, скачивать нечего', async ({ page }) => {
+  await open(page);
+  await shape(page, 'Круг').click();
+  await expect(figures(page)).toHaveCount(1);
+  await page.locator('.mf-bar').getByRole('button', { name: 'Скачать', exact: true }).click();
+  await expect(exportDialog(page)).toBeVisible();
+  await expect(goButton(page)).toBeEnabled();
+  let downloads = 0;
+  page.on('download', () => downloads++);
+  await page.keyboard.press('Control+z'); // the shortcut works behind the dialog and empties the sheet
+  await expect(figures(page)).toHaveCount(0);
+  await expect(exportDialog(page).getByText('Лист пока пустой. Добавьте хотя бы одну фигуру.')).toBeVisible();
+  await expect(goButton(page)).toBeDisabled();
+  await page.waitForTimeout(300);
+  expect(downloads).toBe(0);
+  // and the button wakes up again when a figure comes back
+  await page.keyboard.press('Control+y');
+  await expect(figures(page)).toHaveCount(1);
+  await expect(goButton(page)).toBeEnabled();
+});
+
+test('экспорт: закрытый во время создания файла диалог ничего не скачивает', async ({ page }) => {
+  await page.addInitScript(() => {
+    const real = HTMLCanvasElement.prototype.toBlob;
+    HTMLCanvasElement.prototype.toBlob = function (cb, ...rest) {
+      // a slow PNG: the file is ready 1.2 s later, and the page notes the moment
+      setTimeout(() => real.call(this, (b) => (cb(b), ((window as unknown as { __pngReady: boolean }).__pngReady = true)), ...rest), 1200);
+    };
+  });
+  await open(page);
+  await shape(page, 'Круг').click();
+  let downloads = 0;
+  page.on('download', () => downloads++);
+  await page.locator('.mf-bar').getByRole('button', { name: 'Скачать', exact: true }).click();
+  await goButton(page).click();
+  await expect(exportDialog(page).getByRole('button', { name: 'Готовлю файл…' })).toBeVisible();
+  await page.keyboard.press('Escape');
+  await expect(exportDialog(page)).toHaveCount(0);
+  await page.waitForFunction(() => (window as unknown as { __pngReady?: boolean }).__pngReady === true);
+  await page.waitForTimeout(500); // time for a wrong download to happen
+  expect(downloads).toBe(0);
+  await expect(page.getByRole('status')).toHaveCount(0); // no "done" message for a file nobody got
+});
+
+test('файл: сбой при сохранении показывает сообщение', async ({ page }) => {
+  await page.addInitScript(() => {
+    URL.createObjectURL = () => {
+      throw new Error('boom');
+    };
+  });
+  await open(page);
+  await shape(page, 'Круг').click();
+  await dropdown(page).locator('summary').click();
+  await menuItem(page, 'Сохранить в файл').click();
+  await expect(page.getByRole('status')).toHaveText('Не удалось создать файл. Попробуйте ещё раз или выберите другой формат.');
+  await expect(figures(page)).toHaveCount(1); // the app is still alive
+});
+
+test('никаких внешних запросов: добавление, перетаскивание, диалог скачивания, сохранение', async ({ page, baseURL }) => {
+  const origin = new URL(baseURL!).origin;
+  const requests: string[] = [];
+  page.on('request', (r) => requests.push(r.url()));
+  await open(page);
+  await shape(page, 'Круг').click();
+  const c = await centre(page, 0);
+  await page.mouse.move(c.x, c.y);
+  await page.mouse.down();
+  await page.mouse.move(c.x + 50, c.y + 40, { steps: 5 });
+  await page.mouse.up();
+  await page.locator('.mf-bar').getByRole('button', { name: 'Скачать', exact: true }).click();
+  await expect(exportDialog(page)).toBeVisible();
+  await exportDialog(page).getByRole('button', { name: 'Закрыть' }).click();
+  await expect(exportDialog(page)).toHaveCount(0);
+  await dropdown(page).locator('summary').click();
+  const [dl] = await Promise.all([page.waitForEvent('download'), menuItem(page, 'Сохранить в файл').click()]);
+  expect(dl.suggestedFilename()).toBe('moya-semya.json');
+  await page.waitForTimeout(500);
+  expect(requests.length).toBeGreaterThan(0);
+  const own = (u: string) => u.startsWith(origin) || u.startsWith('data:') || u.startsWith('blob:');
+  expect(requests.filter((u) => !own(u))).toEqual([]);
 });

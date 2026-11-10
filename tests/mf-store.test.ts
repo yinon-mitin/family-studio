@@ -241,6 +241,53 @@ describe('my-family store: openDrawing', () => {
   });
 });
 
+describe('my-family store: a replaced drawing does not come back after a reload', () => {
+  it('newDrawing removes the stored drawing and cancels a pending save', () => {
+    s.add('circle');
+    vi.advanceTimersByTime(400);
+    expect(storage.has(STORAGE_KEY)).toBe(true);
+    s.add('square'); // a second save is pending
+    const writes = vi.spyOn(localStorage, 'setItem');
+    s.newDrawing();
+    expect(storage.has(STORAGE_KEY)).toBe(false);
+    vi.advanceTimersByTime(5000);
+    expect(storage.has(STORAGE_KEY)).toBe(false);
+    expect(writes).not.toHaveBeenCalled();
+  });
+
+  it('newDrawing leaves nothing for the next start to restore', async () => {
+    s.add('circle');
+    vi.advanceTimersByTime(400);
+    s.newDrawing();
+    s = await load(); // the page is reloaded before the pause is over
+    s.flushAutosave();
+    expect(s.store.get().doc.figures).toEqual([]);
+  });
+
+  it('opening a file without figures removes the stored drawing and cancels a pending save', async () => {
+    const { newDoc } = await import('../src/tools/my-family/model.ts');
+    s.add('circle');
+    vi.advanceTimersByTime(400);
+    s.add('square');
+    const writes = vi.spyOn(localStorage, 'setItem');
+    s.openDrawing(newDoc('portrait'));
+    expect(storage.has(STORAGE_KEY)).toBe(false); // at once, not after the 400 ms pause
+    vi.advanceTimersByTime(5000);
+    expect(storage.has(STORAGE_KEY)).toBe(false);
+    expect(writes).not.toHaveBeenCalled();
+  });
+
+  it('opening a file with figures replaces the stored drawing with it', async () => {
+    const { addFigure, newDoc } = await import('../src/tools/my-family/model.ts');
+    s.add('circle');
+    s.add('square');
+    vi.advanceTimersByTime(400);
+    s.openDrawing(addFigure(newDoc('portrait'), 'triangle').doc);
+    vi.advanceTimersByTime(400);
+    expect(JSON.parse(storage.get(STORAGE_KEY)!).figures.map((f: { kind: string }) => f.kind)).toEqual(['triangle']);
+  });
+});
+
 describe('my-family store: autosave flush', () => {
   it('flushAutosave writes a pending change at once and stops the timer', () => {
     s.add('circle');

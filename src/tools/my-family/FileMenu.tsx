@@ -1,13 +1,16 @@
 import { useEffect, useRef, useState } from 'preact/hooks';
+import { useDocStore } from '../../core/useDocStore.ts';
 import { download } from '../../export/download.ts';
 import { t } from '../../i18n/index.ts';
 import { Modal } from '../../ui/Modal.tsx';
 import { exportPdf, exportPng, exportSvg, fileName } from './exports.ts';
+import { runExport, type ExportFormat } from './exportFlow.ts';
 import { readDrawingFile } from './files.ts';
+import type { MyFamilyDoc } from './model.ts';
 import { toFile } from './persist.ts';
 import { newDrawing, openDrawing, store, toast } from './store.ts';
 
-type Format = 'png' | 'svg' | 'pdf';
+type Format = ExportFormat;
 const FORMATS: Format[] = ['png', 'svg', 'pdf'];
 
 const hasFigures = (): boolean => store.get().doc.figures.length > 0;
@@ -17,7 +20,12 @@ function askNewDrawing(): void {
 }
 
 function saveDrawing(): void {
-  download(new Blob([toFile(store.get().doc)], { type: 'application/json' }), fileName('json'));
+  try {
+    download(new Blob([toFile(store.get().doc)], { type: 'application/json' }), fileName('json'));
+  } catch {
+    toast(t('export.failed'));
+    return;
+  }
   toast(t('mf.saved'));
 }
 
@@ -32,32 +40,39 @@ async function openFile(file: File): Promise<void> {
   openDrawing(r.doc);
 }
 
-async function render(format: Format): Promise<void> {
-  const doc = store.get().doc;
-  if (format === 'svg') download(exportSvg(doc), fileName('svg'));
-  else if (format === 'png') download(await exportPng(doc), fileName('png'));
-  else download(await exportPdf(doc), fileName('pdf'));
+async function render(format: Format, doc: MyFamilyDoc): Promise<Blob> {
+  if (format === 'svg') return exportSvg(doc);
+  return format === 'png' ? exportPng(doc) : exportPdf(doc);
 }
 
 function ExportDialog(props: { onClose(): void }) {
-  const empty = store.get().doc.figures.length === 0;
+  const empty = useDocStore(store, (s) => s.doc.figures.length === 0); // follows Ctrl+Z and Delete behind the dialog
   const [format, setFormat] = useState<Format>('png');
   const [busy, setBusy] = useState(false);
   const working = useRef(false); // set at once: a second click can arrive before the re-render
+  const alive = useRef(true); // false once the dialog is closed, however it was closed
+  useEffect(
+    () => () => {
+      alive.current = false;
+    },
+    [],
+  );
 
   const run = async () => {
-    if (working.current || empty) return;
+    if (working.current) return;
     working.current = true;
     setBusy(true);
     try {
-      await render(format);
-      toast(t('export.done'));
-      props.onClose();
+      const result = await runExport({ format, getDoc: () => store.get().doc, alive: () => alive.current, render, save: (blob, f) => download(blob, fileName(f)) });
+      if (result === 'done') {
+        toast(t('export.done'));
+        props.onClose();
+      }
     } catch {
-      toast(t('export.failed'));
+      if (alive.current) toast(t('export.failed'));
     } finally {
       working.current = false;
-      setBusy(false);
+      if (alive.current) setBusy(false);
     }
   };
 
