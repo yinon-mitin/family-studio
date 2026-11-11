@@ -1,6 +1,6 @@
 # Family Studio
 
-Tools for family work in psychology practice, in one site: the projective **"My Family"** drawing (ready, the tool that opens by default), a **family crest** builder (ready) and a **genogram** drawing tool (planned). The repository was created by merging two earlier projects, `family-crest` and `family-map`, with their full git history.
+Tools for family work in psychology practice, in one site: the projective **"My Family"** drawing (ready, the tool that opens by default), a **family crest** builder (ready) and a **genogram** drawing tool (planned). Family Studio runs entirely in the browser, with no server. The repository was created by merging two earlier projects, `family-crest` and `family-map`, with their full git history.
 
 > **Status.** The site has a shell (top bar, tabs, tool registry, shared language switch, "erase all my data") with two tools: **My Family** (opens by default) and the **family crest** (`?tool=crest`). The genogram is not wired in yet. The original `family-map` editor lives unchanged in [`legacy/family-map`](legacy/family-map) until its parts are ported to the new shared application.
 
@@ -36,7 +36,7 @@ src/tools/my-family/MyFamily.tsx   the tool: layout, buttons and keyboard shortc
 
 ## Family crest
 
-An interactive family crest builder for group psychology practice. Participants put together a crest from lines of work, animals, nature, symbols, ornaments and colors, then download it as **PNG**, **PDF** or **SVG**.
+The family crest tool of Family Studio, made for group psychology practice. Participants put together a crest from lines of work, animals, nature, symbols, ornaments and colors, then download it as **PNG**, **PDF** or **SVG**.
 
 **Live site:** https://yinon-mitin.github.io/family-studio/
 

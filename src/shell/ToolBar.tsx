@@ -20,7 +20,14 @@ export function ToolBar({ tool, showTabs }: { tool: ToolId; showTabs: boolean })
   const [asking, setAsking] = useState(false);
   const [result, setResult] = useState<WipeResult>(null);
   const menu = useRef<HTMLDetailsElement>(null);
+  const wasAsking = useRef(false);
   useMenuDismiss(menu);
+
+  // The dialog hands focus back to the erase button, but that sits in the closed menu; the menu's own button takes it instead.
+  useEffect(() => {
+    if (wasAsking.current && !asking) menu.current?.querySelector('summary')?.focus();
+    wasAsking.current = asking;
+  }, [asking]);
 
   // Success fades away by itself; a failure stays until it is closed, since it asks the person to do something.
   useEffect(() => {

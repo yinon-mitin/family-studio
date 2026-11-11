@@ -108,6 +108,18 @@ for (const [w, h] of [[915, 412], [844, 390]]) {
   });
 }
 
+test('телефон 412x450 в портрете (разделённый экран): панель не сбоку от листа', async ({ page }) => {
+  test.skip(test.info().project.name !== 'mobile-chromium', 'a phone');
+  await page.setViewportSize({ width: 412, height: 450 });
+  await open(page);
+  await shape(page, 'Круг').click();
+  const sheetBox = (await sheet(page).boundingBox())!;
+  const panel = (await page.locator('.mf-panel').boundingBox())!;
+  // the single-column layout applies: the panel is not to the right of the sheet
+  expect(panel.x).toBeLessThan(sheetBox.x + sheetBox.width);
+  expect(panel.y).toBeGreaterThanOrEqual(sheetBox.y + sheetBox.height - 1);
+});
+
 test('фигура не выходит за лист', async ({ page }) => {
   await open(page);
   await shape(page, 'Круг').click();

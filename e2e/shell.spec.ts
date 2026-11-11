@@ -47,6 +47,22 @@ async function eraseAll(page: Page, answer: 'confirm' | 'cancel' | 'escape' = 'c
   await expect(dialog).toHaveCount(0);
 }
 
+test('после окна стирания фокус возвращается на кнопку меню «Данные»', async ({ page }) => {
+  test.skip(test.info().project.name !== 'desktop-chromium', 'keyboard path');
+  await page.goto('./');
+  const summary = page.locator('.shell-bar details.menu > summary');
+  await summary.focus();
+  await page.keyboard.press('Enter'); // opens the menu
+  await page.getByRole('button', { name: 'Стереть все мои данные' }).focus();
+  await page.keyboard.press('Enter');
+  const dialog = page.getByRole('dialog', { name: 'Стереть все мои данные' });
+  await expect(dialog).toBeFocused();
+  await page.keyboard.press('Escape');
+  await expect(dialog).toHaveCount(0);
+  await expect(summary).toBeFocused();
+  expect(await page.evaluate(() => document.activeElement === document.querySelector('.shell-bar details.menu > summary'))).toBe(true);
+});
+
 const AUTOSAVE_KEY = 'family-crest:autosave:v1';
 const readAutosave = (page: Page) => page.evaluate((key) => localStorage.getItem(key), AUTOSAVE_KEY);
 
